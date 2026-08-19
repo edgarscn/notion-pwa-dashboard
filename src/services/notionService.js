@@ -151,7 +151,6 @@ function parseNotionProperty(prop) {
       if (prop.rollup?.type === "array") {
         const parsedArray = prop.rollup.array?.map(parseNotionProperty).filter(v => v !== "" && v !== null && v !== undefined);
         if (!parsedArray || parsedArray.length === 0) return "";
-        // If all items in array are numbers, sum them!
         const allNumbers = parsedArray.every(v => typeof v === "number" || (!isNaN(v) && v !== ""));
         if (allNumbers) {
           return parsedArray.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
@@ -172,7 +171,6 @@ function parseNotionProperty(prop) {
 function parseTimeValue(val) {
   if (val === null || val === undefined || val === "") return 0;
   if (typeof val === "number") {
-    // If number is small decimal (e.g. 1.5 hours), convert to 90 minutes. If > 12, assume minutes.
     if (val > 0 && val <= 15) return Math.round(val * 60);
     return Math.round(val);
   }
@@ -180,7 +178,6 @@ function parseTimeValue(val) {
   const str = String(val).trim().toLowerCase();
   if (!str) return 0;
 
-  // Handles "1h30m", "1h 30min", "2h"
   if (str.includes("h")) {
     const hMatch = str.match(/(\d+)\s*h/);
     const mMatch = str.match(/(\d+)\s*m/);
@@ -189,7 +186,6 @@ function parseTimeValue(val) {
     return hours * 60 + mins;
   }
 
-  // Handles "01:30" (hh:mm)
   if (str.includes(":")) {
     const parts = str.split(":");
     const hours = parseInt(parts[0], 10) || 0;
@@ -197,7 +193,6 @@ function parseTimeValue(val) {
     return hours * 60 + mins;
   }
 
-  // Pure numeric string
   const num = parseFloat(str.replace(",", "."));
   if (!isNaN(num)) {
     if (num > 0 && num <= 15) return Math.round(num * 60);
@@ -237,7 +232,6 @@ export function normalizeNotionPages(results) {
           return props[key];
         }
       }
-      // Partial matching fallback
       for (const key of propKeys) {
         const ck = cleanKey(key);
         for (const alias of cleanAliases) {
@@ -249,7 +243,6 @@ export function normalizeNotionPages(results) {
       return null;
     };
 
-    // Find page Title property dynamically
     let titleProp = findPropByAliases(["conteudo", "nome", "title", "content", "topico", "descricao", "task", "item", "estudo"]);
     if (!titleProp) {
       const titleKey = propKeys.find(k => props[k]?.type === "title");
@@ -291,13 +284,8 @@ export function normalizeNotionPages(results) {
     const observacoesRaw = parseNotionProperty(findPropByAliases(["observacoes", "notas", "comentarios", "anotacoes", "obs"]));
     const observacoes = observacoesRaw ? String(observacoesRaw) : "";
 
-    // Auto-calculate feitas if 0 but acertos + erros exist
-    if (!feitas && (acertos > 0 || erros > 0)) {
-      feitas = acertos + erros;
-    }
-    if (!feitas && totalQuestoes > 0) {
-      feitas = totalQuestoes;
-    }
+    // Target total questions vs done questions
+    const baseTotal = totalQuestoes > 0 ? totalQuestoes : (feitas > 0 ? feitas : (acertos + erros));
 
     return {
       id: page.id,
@@ -307,8 +295,8 @@ export function normalizeNotionPages(results) {
       assunto,
       dataCriacao: String(dataCriacaoRaw || new Date().toISOString().split("T")[0]),
       tempoLiquidoMin,
-      totalQuestoes: totalQuestoes || feitas,
-      feitas,
+      totalQuestoes: baseTotal,
+      feitas: feitas || baseTotal,
       acertos,
       erros,
       observacoes,
@@ -333,7 +321,7 @@ export function inspectNotionColumns(results) {
 }
 
 /**
- * Calculate comprehensive analytics and KPIs for Concurso studies
+ * Calculate comprehensive analytics and KPIs for Concurso studies using Total de Questões as base
  */
 export function calculateStudyAnalytics(records = []) {
   if (!records.length) {
@@ -341,6 +329,7 @@ export function calculateStudyAnalytics(records = []) {
       totalSessoes: 0,
       tempoTotalMin: 0,
       tempoTotalFormatado: "0h 0m",
+      totalBaseQuestoes: 0,
       totalFeitas: 0,
       totalAcertos: 0,
       totalErros: 0,
@@ -352,6 +341,7 @@ export function calculateStudyAnalytics(records = []) {
   }
 
   let tempoTotalMin = 0;
+  let totalBaseQuestoes = 0;
   let totalFeitas = 0;
   let totalAcertos = 0;
   let totalErros = 0;
@@ -360,7 +350,11 @@ export function calculateStudyAnalytics(records = []) {
   const datasMap = {};
 
   records.forEach(r => {
+    // User accuracy rule: Denominator is totalQuestoes (if > 0), else feitas
+    const baseQuestoes = r.totalQuestoes > 0 ? r.totalQuestoes : (r.feitas > 0 ? r.feitas : (r.acertos + r.erros));
+
     tempoTotalMin += r.tempoLiquidoMin || 0;
+    totalBaseQuestoes += baseQuestoes;
     totalFeitas += r.feitas || 0;
     totalAcertos += r.acertos || 0;
     totalErros += r.erros || 0;
@@ -371,6 +365,7 @@ export function calculateStudyAnalytics(records = []) {
       materiasMap[mat] = {
         materia: mat,
         tempoMin: 0,
+        baseQuestoes: 0,
         feitas: 0,
         acertos: 0,
         erros: 0,
@@ -378,6 +373,7 @@ export function calculateStudyAnalytics(records = []) {
       };
     }
     materiasMap[mat].tempoMin += r.tempoLiquidoMin || 0;
+    materiasMap[mat].baseQuestoes += baseQuestoes;
     materiasMap[mat].feitas += r.feitas || 0;
     materiasMap[mat].acertos += r.acertos || 0;
     materiasMap[mat].erros += r.erros || 0;
@@ -389,20 +385,20 @@ export function calculateStudyAnalytics(records = []) {
       datasMap[dateKey] = { date: dateKey, tempoMin: 0, questoes: 0 };
     }
     datasMap[dateKey].tempoMin += r.tempoLiquidoMin || 0;
-    datasMap[dateKey].questoes += r.feitas || 0;
+    datasMap[dateKey].questoes += baseQuestoes;
   });
 
-  // Calculate formatted time
+  // Formatted total time
   const horas = Math.floor(tempoTotalMin / 60);
   const mins = tempoTotalMin % 60;
   const tempoTotalFormatado = `${horas}h ${mins}m`;
 
-  // Calculate global accuracy %
-  const taxaAssertividade = totalFeitas > 0 ? ((totalAcertos / totalFeitas) * 100).toFixed(1) : 0;
+  // Accuracy rule: (Acertos / Total de Questões) * 100
+  const taxaAssertividade = totalBaseQuestoes > 0 ? ((totalAcertos / totalBaseQuestoes) * 100).toFixed(1) : 0;
 
-  // Format Matérias breakdown array with accuracy rates
+  // Format Matérias breakdown array
   const materiasBreakdown = Object.values(materiasMap).map(m => {
-    const acc = m.feitas > 0 ? ((m.acertos / m.feitas) * 100).toFixed(1) : 0;
+    const acc = m.baseQuestoes > 0 ? ((m.acertos / m.baseQuestoes) * 100).toFixed(1) : 0;
     const h = Math.floor(m.tempoMin / 60);
     const mRemaining = m.tempoMin % 60;
     return {
@@ -412,12 +408,12 @@ export function calculateStudyAnalytics(records = []) {
     };
   }).sort((a, b) => b.tempoMin - a.tempoMin);
 
-  // Identify Critical Subjects (< 75% accuracy or highest error count)
+  // Critical subjects (< 75% accuracy)
   const materiasCriticas = materiasBreakdown
-    .filter(m => m.feitas > 0 && m.taxaAcerto < 75)
+    .filter(m => m.baseQuestoes > 0 && m.taxaAcerto < 75)
     .sort((a, b) => a.taxaAcerto - b.taxaAcerto);
 
-  // Format Evolution timeline array (sorted chronologically)
+  // Evolution timeline
   const evolucaoDiaria = Object.values(datasMap)
     .sort((a, b) => a.date.localeCompare(b.date))
     .map(d => ({
@@ -429,6 +425,7 @@ export function calculateStudyAnalytics(records = []) {
     totalSessoes: records.length,
     tempoTotalMin,
     tempoTotalFormatado,
+    totalBaseQuestoes,
     totalFeitas,
     totalAcertos,
     totalErros,

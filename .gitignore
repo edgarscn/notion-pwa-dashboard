@@ -1,0 +1,17 @@
+# Node dependencies
+node_modules/
+
+# Gatsby build output & cache
+.cache/
+public/
+
+# Environment files
+.env
+.env.*
+
+# Netlify local dev
+.netlify/
+
+# System / OS files
+.DS_Store
+Thumbs.db

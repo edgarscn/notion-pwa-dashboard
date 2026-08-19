@@ -30,7 +30,7 @@ exports.handler = async (event, context) => {
       event.headers["x-notion-key"] ||
       process.env.NOTION_KEY;
 
-    const databaseId =
+    let databaseId =
       body.databaseId ||
       event.headers["x-database-id"] ||
       process.env.NOTION_DATABASE_ID;
@@ -41,10 +41,13 @@ exports.handler = async (event, context) => {
         headers,
         body: JSON.stringify({
           error: "Chave do Notion (NOTION_KEY) ou ID da Base de Dados (NOTION_DATABASE_ID) não configurados.",
-          details: "Por favor, forneça as credenciais nas configurações do aplicativo ou nas variáveis de ambiente do Netlify."
+          details: "Por favor, forneça as credenciais nas configurações do aplicativo."
         })
       };
     }
+
+    // Sanitize Database ID (remove hyphens, query params if any)
+    databaseId = databaseId.trim().replace(/-/g, "");
 
     // Initialize Notion Client
     const notion = new Client({ auth: notionKey });
@@ -83,11 +86,20 @@ exports.handler = async (event, context) => {
     };
   } catch (error) {
     console.error("Erro na função Netlify Notion:", error);
+
+    let userFriendlyMsg = error.message || "Erro desconhecido ao comunicar com a API do Notion.";
+    if (error.code === "object_not_found") {
+      userFriendlyMsg = "Base de dados não encontrada. Verifique se adicionou a conexão 'Dashboard de Estudos' nas opções (...) da sua tabela no Notion.";
+    } else if (error.code === "unauthorized") {
+      userFriendlyMsg = "Token de acesso do Notion inválido ou sem permissão. Verifique a chave inserida.";
+    }
+
     return {
       statusCode: error.status || 500,
       headers,
       body: JSON.stringify({
-        error: "Falha ao conectar com a API do Notion.",
+        success: false,
+        error: userFriendlyMsg,
         message: error.message,
         code: error.code
       })

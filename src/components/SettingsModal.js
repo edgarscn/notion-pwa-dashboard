@@ -39,7 +39,7 @@ export default function SettingsModal({
           </h4>
           <ol style={{ fontSize: "0.8rem", paddingLeft: "1.2rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "0.25rem" }}>
             <li>Acesse <a href="https://www.notion.so/my-integrations" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent-primary)" }}>notion.so/my-integrations</a> e crie uma nova integração.</li>
-            <li>Copie o <strong>Internal Integration Token</strong> (começa com <code>secret_...</code>).</li>
+            <li>Copie o <strong>Access token / Integration Token</strong> (começa com <code>ntn_...</code> ou <code>secret_...</code>).</li>
             <li>Abra sua tabela de estudos no Notion, clique nos <code>...</code> no canto superior direito &gt; <strong>Connections</strong> e adicione sua integração.</li>
             <li>Copie o ID da base de dados contido na URL (32 caracteres entre a barra da URL e a interrogação).</li>
           </ol>
@@ -53,11 +53,11 @@ export default function SettingsModal({
 
         <form onSubmit={handleSubmit}>
           <div className="form-group">
-            <label className="form-label">Chave de Integração Notion (Secret Token)</label>
+            <label className="form-label">Chave de Integração Notion (Access Token / Secret)</label>
             <input
               type="password"
               className="form-input"
-              placeholder="secret_..."
+              placeholder="ntn_... ou secret_..."
               value={notionKey}
               onChange={e => setNotionKey(e.target.value)}
             />

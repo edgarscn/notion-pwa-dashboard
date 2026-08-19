@@ -26,6 +26,8 @@ export default function IndexPage() {
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
   const [lastSyncTime, setLastSyncTime] = useState("");
   const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
+  const [detectedColumns, setDetectedColumns] = useState([]);
+  const [showInspector, setShowInspector] = useState(false);
 
   // Notion API config stored in local storage
   const [notionConfig, setNotionConfig] = useState(null);
@@ -96,19 +98,19 @@ export default function IndexPage() {
     setErrorMessage("");
 
     try {
-      const fetchedRecords = await fetchNotionStudyRecords(cfg);
+      const result = await fetchNotionStudyRecords(cfg);
       const nowTime = new Date().toLocaleTimeString();
 
-      if (fetchedRecords) {
-        setRecords(fetchedRecords);
+      if (result && result.records) {
+        setRecords(result.records);
+        setDetectedColumns(result.columns || []);
         setIsLive(true);
         setIsDemo(false);
         setLastSyncTime(nowTime);
-        localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify(fetchedRecords));
+        localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify(result.records));
       }
     } catch (err) {
       console.error("Falha ao carregar dados do Notion:", err);
-      // NEVER bleed demo data into live mode! Show explicit error instead.
       setErrorMessage("Erro ao sincronizar com a API do Notion: " + (err.message || "Verifique suas credenciais."));
       setIsLive(false);
     } finally {
@@ -206,6 +208,39 @@ export default function IndexPage() {
       {loading && (
         <div style={{ padding: "1rem", textAlign: "center", background: "var(--bg-card)", borderRadius: "var(--radius-md)", marginBottom: "1.5rem" }}>
           🔄 Sincronizando dados com o seu Notion em tempo real...
+        </div>
+      )}
+
+      {/* Column Mapping Inspector Toggle Button */}
+      {isLive && detectedColumns.length > 0 && (
+        <div style={{ marginBottom: "1.5rem", display: "flex", justifyContent: "flex-end" }}>
+          <button
+            className="btn btn-secondary"
+            onClick={() => setShowInspector(!showInspector)}
+            style={{ fontSize: "0.8rem" }}
+          >
+            🔍 {showInspector ? "Ocultar Mapeamento de Colunas" : "Ver Mapeamento de Colunas do Notion (" + detectedColumns.length + " colunas)"}
+          </button>
+        </div>
+      )}
+
+      {/* Column Mapping Inspector Box */}
+      {showInspector && detectedColumns.length > 0 && (
+        <div className="glass-card" style={{ marginBottom: "1.5rem", border: "1px solid var(--border-highlight)" }}>
+          <h4 style={{ fontSize: "0.95rem", fontWeight: 700, marginBottom: "0.75rem", color: "var(--accent-primary)" }}>
+            📋 Colunas Detectadas na sua Tabela do Notion:
+          </h4>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(240px, 1fr))", gap: "0.75rem" }}>
+            {detectedColumns.map((col, idx) => (
+              <div key={idx} style={{ background: "var(--bg-secondary)", padding: "0.6rem 0.8rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)", fontSize: "0.8rem" }}>
+                <div style={{ fontWeight: 700, color: "var(--text-primary)" }}>{col.name}</div>
+                <div style={{ fontSize: "0.7rem", color: "var(--accent-primary)" }}>Tipo: {col.type}</div>
+                <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  Amostra: {col.sampleValue || "(Vazio)"}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       )}
 

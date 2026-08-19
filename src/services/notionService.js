@@ -2,7 +2,6 @@
  * Service for fetching, parsing, and calculating analytics from Notion Concurso Study Databases
  */
 
-// Key for saving custom Notion config in LocalStorage
 export const NOTION_CONFIG_KEY = "notion_study_config_v1";
 
 /**
@@ -102,7 +101,19 @@ export const DEMO_STUDY_DATASET = [
 ];
 
 /**
- * Extract plain text / string / number value from any Notion property type
+ * Clean string property key (strips emojis, accents, symbols for matching)
+ */
+function cleanKey(str = "") {
+  return str
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "") // remove accents
+    .replace(/[^\w\s]/gi, "") // remove emojis & symbols
+    .trim();
+}
+
+/**
+ * Robustly extract plain text / string / number value from any Notion property type
  */
 function parseNotionProperty(prop) {
   if (!prop) return "";
@@ -138,7 +149,14 @@ function parseNotionProperty(prop) {
       if (prop.rollup?.type === "number") return prop.rollup.number !== null ? prop.rollup.number : 0;
       if (prop.rollup?.type === "date") return prop.rollup.date?.start || "";
       if (prop.rollup?.type === "array") {
-        return prop.rollup.array?.map(parseNotionProperty).filter(Boolean).join(", ") || "";
+        const parsedArray = prop.rollup.array?.map(parseNotionProperty).filter(v => v !== "" && v !== null && v !== undefined);
+        if (!parsedArray || parsedArray.length === 0) return "";
+        // If all items in array are numbers, sum them!
+        const allNumbers = parsedArray.every(v => typeof v === "number" || (!isNaN(v) && v !== ""));
+        if (allNumbers) {
+          return parsedArray.reduce((acc, curr) => acc + (Number(curr) || 0), 0);
+        }
+        return parsedArray.join(", ");
       }
       return "";
     case "relation":
@@ -149,6 +167,58 @@ function parseNotionProperty(prop) {
 }
 
 /**
+ * Parse time values (handles minutes, hours, "1h30m", "01:30", "90 min")
+ */
+function parseTimeValue(val) {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") {
+    // If number is small decimal (e.g. 1.5 hours), convert to 90 minutes. If > 12, assume minutes.
+    if (val > 0 && val <= 15) return Math.round(val * 60);
+    return Math.round(val);
+  }
+
+  const str = String(val).trim().toLowerCase();
+  if (!str) return 0;
+
+  // Handles "1h30m", "1h 30min", "2h"
+  if (str.includes("h")) {
+    const hMatch = str.match(/(\d+)\s*h/);
+    const mMatch = str.match(/(\d+)\s*m/);
+    const hours = hMatch ? parseInt(hMatch[1], 10) : 0;
+    const mins = mMatch ? parseInt(mMatch[1], 10) : 0;
+    return hours * 60 + mins;
+  }
+
+  // Handles "01:30" (hh:mm)
+  if (str.includes(":")) {
+    const parts = str.split(":");
+    const hours = parseInt(parts[0], 10) || 0;
+    const mins = parseInt(parts[1], 10) || 0;
+    return hours * 60 + mins;
+  }
+
+  // Pure numeric string
+  const num = parseFloat(str.replace(",", "."));
+  if (!isNaN(num)) {
+    if (num > 0 && num <= 15) return Math.round(num * 60);
+    return Math.round(num);
+  }
+
+  return 0;
+}
+
+/**
+ * Extract numerical integer value safely
+ */
+function parseNumberValue(val) {
+  if (val === null || val === undefined || val === "") return 0;
+  if (typeof val === "number") return Math.round(val);
+  const str = String(val).replace(",", ".").replace(/[^\d.-]/g, "");
+  const num = parseFloat(str);
+  return isNaN(num) ? 0 : Math.round(num);
+}
+
+/**
  * Normalize Notion API response pages into standardized Study Records
  */
 export function normalizeNotionPages(results) {
@@ -156,39 +226,78 @@ export function normalizeNotionPages(results) {
 
   return results.map(page => {
     const props = page.properties || {};
+    const propKeys = Object.keys(props);
 
-    // Helper to find property by name aliases or case-insensitive search
-    const findProp = (possibleNames) => {
-      for (const name of possibleNames) {
-        const exactKey = Object.keys(props).find(k => k.trim().toLowerCase() === name.trim().toLowerCase());
-        if (exactKey) return props[exactKey];
+    // Helper to search property by standard Portuguese names or clean aliases
+    const findPropByAliases = (possibleAliases) => {
+      const cleanAliases = possibleAliases.map(cleanKey);
+      for (const key of propKeys) {
+        const ck = cleanKey(key);
+        if (cleanAliases.includes(ck)) {
+          return props[key];
+        }
+      }
+      // Partial matching fallback
+      for (const key of propKeys) {
+        const ck = cleanKey(key);
+        for (const alias of cleanAliases) {
+          if (ck.includes(alias) || alias.includes(ck)) {
+            return props[key];
+          }
+        }
       }
       return null;
     };
 
-    // Find page Title property dynamically if specified alias not found
-    let titleProp = findProp(["Conteúdo", "Conteudo", "Content", "Nome", "Title", "Tópico", "Topico", "Descrição", "Descricao", "Task", "Item"]);
+    // Find page Title property dynamically
+    let titleProp = findPropByAliases(["conteudo", "nome", "title", "content", "topico", "descricao", "task", "item", "estudo"]);
     if (!titleProp) {
-      const titleKey = Object.keys(props).find(k => props[k]?.type === "title");
+      const titleKey = propKeys.find(k => props[k]?.type === "title");
       if (titleKey) titleProp = props[titleKey];
     }
 
-    const materia = parseNotionProperty(findProp(["Matéria", "Materia", "Disciplina", "Subject", "Curso", "Área", "Area", "Modulo", "Módulo"])) || "Geral";
-    const aula = parseNotionProperty(findProp(["Aula", "Unidade", "Lesson", "Capítulo", "Capitulo", "Bloco"])) || "-";
-    const conteudo = parseNotionProperty(titleProp) || "Estudo sem título";
-    const assunto = parseNotionProperty(findProp(["Assunto", "Subtópico", "Subtopico", "Topic", "Detalhes", "Tema"])) || "-";
+    const materiaRaw = parseNotionProperty(findPropByAliases(["materia", "disciplina", "subject", "curso", "area", "modulo"]));
+    const materia = materiaRaw ? String(materiaRaw) : "Geral";
+
+    const aulaRaw = parseNotionProperty(findPropByAliases(["aula", "unidade", "lesson", "capitulo", "bloco"]));
+    const aula = aulaRaw ? String(aulaRaw) : "-";
+
+    const conteudoRaw = parseNotionProperty(titleProp);
+    const conteudo = conteudoRaw ? String(conteudoRaw) : "Estudo sem título";
+
+    const assuntoRaw = parseNotionProperty(findPropByAliases(["assunto", "subtopico", "topic", "detalhes", "tema"]));
+    const assunto = assuntoRaw ? String(assuntoRaw) : "-";
     
-    let dataCriacao = parseNotionProperty(findProp(["Data de Criação", "Data de criação", "Data de Criacao", "Data", "Date", "Dia", "Data do Estudo"]));
-    if (!dataCriacao && page.created_time) {
-      dataCriacao = page.created_time.split("T")[0];
+    let dataCriacaoRaw = parseNotionProperty(findPropByAliases(["data de criacao", "data", "date", "dia", "data do estudo"]));
+    if (!dataCriacaoRaw && page.created_time) {
+      dataCriacaoRaw = page.created_time.split("T")[0];
     }
 
-    const tempoLiquido = Number(parseNotionProperty(findProp(["Tempo de estudo líquido", "Tempo de Estudo Líquido", "Tempo de Estudo Liquido", "Tempo Líquido", "Tempo Liquido", "Tempo (min)", "Tempo", "Minutos", "Duração", "Duracao", "Horas", "Estudo (min)"]))) || 0;
-    const totalQuestoes = Number(parseNotionProperty(findProp(["Total de questões", "Total de Questões", "Total de questoes", "Total Questoes", "Total de Questões Resolvidas", "Qtd Questões", "Questoes Total"]))) || 0;
-    const feitas = Number(parseNotionProperty(findProp(["Feitas", "Questões Feitas", "Questoes Feitas", "Resolvidas", "Qtd Feitas", "Questões"]))) || 0;
-    const acertos = Number(parseNotionProperty(findProp(["Acertos", "Questões Certas", "Questoes Certas", "Certas", "Corretas", "Qtd Acertos", "Qtd Certas"]))) || 0;
-    const erros = Number(parseNotionProperty(findProp(["Erros", "Questões Erradas", "Questoes Erradas", "Erradas", "Incorretas", "Qtd Erros", "Qtd Erradas"]))) || 0;
-    const observacoes = parseNotionProperty(findProp(["Observações", "Observacoes", "Notas", "Comentários", "Comentarios", "Anotações", "Anotacoes", "Obs"])) || "";
+    const tempoLiquidoVal = parseNotionProperty(findPropByAliases(["tempo de estudo liquido", "tempo liquido", "tempo min", "tempo", "minutos", "duracao", "horas", "estudo min"]));
+    const tempoLiquidoMin = parseTimeValue(tempoLiquidoVal);
+
+    const totalQuestoesVal = parseNotionProperty(findPropByAliases(["total de questoes", "total questoes", "total de questoes resolvidas", "qtd questoes", "questoes total"]));
+    const totalQuestoes = parseNumberValue(totalQuestoesVal);
+
+    const feitasVal = parseNotionProperty(findPropByAliases(["feitas", "questoes feitas", "resolvidas", "qtd feitas", "questoes"]));
+    let feitas = parseNumberValue(feitasVal);
+
+    const acertosVal = parseNotionProperty(findPropByAliases(["acertos", "questoes certas", "certas", "corretas", "qtd acertos", "qtd certas"]));
+    const acertos = parseNumberValue(acertosVal);
+
+    const errosVal = parseNotionProperty(findPropByAliases(["erros", "questoes erradas", "erradas", "incorretas", "qtd erros", "qtd erradas"]));
+    const erros = parseNumberValue(errosVal);
+
+    const observacoesRaw = parseNotionProperty(findPropByAliases(["observacoes", "notas", "comentarios", "anotacoes", "obs"]));
+    const observacoes = observacoesRaw ? String(observacoesRaw) : "";
+
+    // Auto-calculate feitas if 0 but acertos + erros exist
+    if (!feitas && (acertos > 0 || erros > 0)) {
+      feitas = acertos + erros;
+    }
+    if (!feitas && totalQuestoes > 0) {
+      feitas = totalQuestoes;
+    }
 
     return {
       id: page.id,
@@ -196,16 +305,31 @@ export function normalizeNotionPages(results) {
       aula,
       conteudo,
       assunto,
-      dataCriacao: dataCriacao || new Date().toISOString().split("T")[0],
-      tempoLiquidoMin: tempoLiquido,
+      dataCriacao: String(dataCriacaoRaw || new Date().toISOString().split("T")[0]),
+      tempoLiquidoMin,
       totalQuestoes: totalQuestoes || feitas,
-      feitas: feitas || (acertos + erros),
+      feitas,
       acertos,
       erros,
       observacoes,
       url: page.url || "#"
     };
   });
+}
+
+/**
+ * Inspect detected Notion database columns for transparency/debugging
+ */
+export function inspectNotionColumns(results) {
+  if (!Array.isArray(results) || results.length === 0) return [];
+  const firstPage = results[0];
+  const props = firstPage.properties || {};
+
+  return Object.keys(props).map(key => ({
+    name: key,
+    type: props[key]?.type || "unknown",
+    sampleValue: String(parseNotionProperty(props[key]))
+  }));
 }
 
 /**
@@ -339,7 +463,10 @@ export async function fetchNotionStudyRecords(config) {
       throw new Error(data.error || data.message || "Erro de resposta da API Netlify Notion");
     }
 
-    return normalizeNotionPages(data.results);
+    return {
+      records: normalizeNotionPages(data.results),
+      columns: inspectNotionColumns(data.results)
+    };
   } catch (err) {
     console.warn("Erro ao buscar via Netlify Proxy:", err);
     throw err;

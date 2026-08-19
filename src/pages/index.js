@@ -14,7 +14,7 @@ import {
 } from "../services/notionService";
 import "../styles/global.css";
 
-const CACHED_RECORDS_KEY = "notion_study_cached_records_v1";
+const LIVE_CACHE_KEY = "notion_study_user_live_cache_v2";
 
 export default function IndexPage() {
   const [theme, setTheme] = useState("dark");
@@ -24,12 +24,14 @@ export default function IndexPage() {
   const [loading, setLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState("");
   const [isSettingsOpen, setIsSettingsOpen] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState("");
+  const [autoSyncEnabled, setAutoSyncEnabled] = useState(true);
 
   // Notion API config stored in local storage
   const [notionConfig, setNotionConfig] = useState(null);
-  const [records, setRecords] = useState(DEMO_STUDY_DATASET);
+  const [records, setRecords] = useState([]);
 
-  // Load theme & settings on mount
+  // Load saved configuration and cached user live records on mount
   useEffect(() => {
     // Theme preference
     const savedTheme = localStorage.getItem("theme") || "dark";
@@ -53,18 +55,26 @@ export default function IndexPage() {
         if (parsed.notionKey && parsed.databaseId) {
           setNotionConfig(parsed);
           setIsDemo(false);
+
+          // Load user's cached live records
+          const cachedLive = localStorage.getItem(LIVE_CACHE_KEY);
+          if (cachedLive) {
+            try {
+              const parsedCache = JSON.parse(cachedLive);
+              if (Array.isArray(parsedCache)) {
+                setRecords(parsedCache);
+                setIsLive(true);
+              }
+            } catch (e) {}
+          }
         }
       } catch (e) {
         console.error("Erro ao carregar configurações salvas:", e);
       }
-    }
-
-    // Load cached records if available
-    const cached = localStorage.getItem(CACHED_RECORDS_KEY);
-    if (cached) {
-      try {
-        setRecords(JSON.parse(cached));
-      } catch (e) {}
+    } else {
+      // Default to demo mode if no Notion credentials configured yet
+      setIsDemo(true);
+      setRecords(DEMO_STUDY_DATASET);
     }
 
     return () => {
@@ -74,7 +84,7 @@ export default function IndexPage() {
   }, []);
 
   // Fetch live records from Notion API
-  const loadLiveData = useCallback(async (configToUse) => {
+  const loadLiveData = useCallback(async (configToUse, silent = false) => {
     const cfg = configToUse || notionConfig;
     if (!cfg || !cfg.notionKey || !cfg.databaseId) {
       setIsDemo(true);
@@ -82,35 +92,51 @@ export default function IndexPage() {
       return;
     }
 
-    setLoading(true);
+    if (!silent) setLoading(true);
     setErrorMessage("");
 
     try {
       const fetchedRecords = await fetchNotionStudyRecords(cfg);
-      if (fetchedRecords && fetchedRecords.length > 0) {
+      const nowTime = new Date().toLocaleTimeString();
+
+      if (fetchedRecords) {
         setRecords(fetchedRecords);
         setIsLive(true);
         setIsDemo(false);
-        localStorage.setItem(CACHED_RECORDS_KEY, JSON.stringify(fetchedRecords));
-      } else {
-        setErrorMessage("Nenhum registro encontrado na base de dados do Notion fornecida.");
+        setLastSyncTime(nowTime);
+        localStorage.setItem(LIVE_CACHE_KEY, JSON.stringify(fetchedRecords));
       }
     } catch (err) {
       console.error("Falha ao carregar dados do Notion:", err);
-      setErrorMessage("Erro ao conectar com a API do Notion. Exibindo dados simulados (Demo).");
-      setIsDemo(true);
+      // NEVER bleed demo data into live mode! Show explicit error instead.
+      setErrorMessage("Erro ao sincronizar com a API do Notion: " + (err.message || "Verifique suas credenciais."));
       setIsLive(false);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [notionConfig]);
 
-  // Load live data if config changes and demo is false
+  // Initial load when notionConfig is set
   useEffect(() => {
     if (!isDemo && notionConfig?.notionKey && notionConfig?.databaseId) {
       loadLiveData(notionConfig);
     }
   }, [isDemo, notionConfig, loadLiveData]);
+
+  // Real-Time Polling Auto-Sync (Every 30 seconds when Live Mode is active)
+  useEffect(() => {
+    if (isDemo || !autoSyncEnabled || !notionConfig?.notionKey || !notionConfig?.databaseId) {
+      return;
+    }
+
+    const interval = setInterval(() => {
+      if (typeof window !== "undefined" && navigator.onLine) {
+        loadLiveData(notionConfig, true);
+      }
+    }, 30000); // 30 seconds real-time polling
+
+    return () => clearInterval(interval);
+  }, [isDemo, autoSyncEnabled, notionConfig, loadLiveData]);
 
   // Toggle Theme
   const handleToggleTheme = () => {
@@ -125,6 +151,7 @@ export default function IndexPage() {
     setNotionConfig(newConfig);
     localStorage.setItem(NOTION_CONFIG_KEY, JSON.stringify(newConfig));
     setIsDemo(false);
+    setRecords([]); // Clear demo data before live fetch
     loadLiveData(newConfig);
   };
 
@@ -133,6 +160,7 @@ export default function IndexPage() {
     if (isDemo) {
       if (notionConfig?.notionKey && notionConfig?.databaseId) {
         setIsDemo(false);
+        setRecords([]);
         loadLiveData(notionConfig);
       } else {
         setIsSettingsOpen(true);
@@ -156,14 +184,17 @@ export default function IndexPage() {
         isLive={isLive}
         isOffline={isOffline}
         theme={theme}
+        lastSyncTime={lastSyncTime}
+        autoSyncEnabled={autoSyncEnabled}
+        onToggleAutoSync={() => setAutoSyncEnabled(!autoSyncEnabled)}
         onToggleTheme={handleToggleTheme}
         onOpenSettings={() => setIsSettingsOpen(true)}
-        onRefresh={() => isDemo ? setRecords([...DEMO_STUDY_DATASET]) : loadLiveData()}
+        onRefresh={() => isDemo ? setRecords([...DEMO_STUDY_DATASET]) : loadLiveData(notionConfig)}
       />
 
       {/* Warning/Error Banner */}
       {errorMessage && (
-        <div style={{ background: "rgba(245, 158, 11, 0.15)", color: "var(--warning)", padding: "1rem", borderRadius: "var(--radius-md)", marginBottom: "1.5rem", border: "1px solid rgba(245, 158, 11, 0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div style={{ background: "rgba(239, 68, 68, 0.15)", color: "var(--danger)", padding: "1rem", borderRadius: "var(--radius-md)", marginBottom: "1.5rem", border: "1px solid rgba(239, 68, 68, 0.3)", display: "flex", justifyContent: "space-between", alignItems: "center" }}>
           <span>⚠️ {errorMessage}</span>
           <button className="btn btn-secondary" onClick={() => setIsSettingsOpen(true)} style={{ padding: "0.3rem 0.6rem", fontSize: "0.8rem" }}>
             Revisar Credenciais
@@ -174,7 +205,18 @@ export default function IndexPage() {
       {/* Loading Bar */}
       {loading && (
         <div style={{ padding: "1rem", textAlign: "center", background: "var(--bg-card)", borderRadius: "var(--radius-md)", marginBottom: "1.5rem" }}>
-          🔄 Sincronizando dados com a API do Notion...
+          🔄 Sincronizando dados com o seu Notion em tempo real...
+        </div>
+      )}
+
+      {/* Empty State Warning if live database has no records yet */}
+      {!isDemo && !loading && records.length === 0 && !errorMessage && (
+        <div className="glass-card" style={{ textAlign: "center", padding: "2rem", marginBottom: "1.5rem" }}>
+          <div style={{ fontSize: "2.5rem", marginBottom: "0.5rem" }}>📖</div>
+          <h3 style={{ fontSize: "1.1rem", fontWeight: 700, marginBottom: "0.5rem" }}>Sua base de dados no Notion está conectada!</h3>
+          <p style={{ fontSize: "0.875rem", color: "var(--text-secondary)" }}>
+            Preencha suas sessões de estudo na tabela do Notion. Assim que adicionar registros, seus gráficos e métricas serão exibidos aqui em tempo real.
+          </p>
         </div>
       )}
 

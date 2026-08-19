@@ -6,12 +6,12 @@
 export const NOTION_CONFIG_KEY = "notion_study_config_v1";
 
 /**
- * Default realistic Concurso Publico Study Demo Dataset
+ * Neutral Demo Dataset (Used ONLY when user explicitly toggles Demo mode)
  */
 export const DEMO_STUDY_DATASET = [
   {
     id: "demo-1",
-    materia: "Direito Constitucional",
+    materia: "Direito Constitucional [Demo]",
     aula: "Aula 02",
     conteudo: "Direitos e Garantias Fundamentais",
     assunto: "Remédios Constitucionais (Habeas Corpus, Mandado de Segurança)",
@@ -26,7 +26,7 @@ export const DEMO_STUDY_DATASET = [
   },
   {
     id: "demo-2",
-    materia: "Direito Administrativo",
+    materia: "Direito Administrativo [Demo]",
     aula: "Aula 04",
     conteudo: "Atos Administrativos",
     assunto: "Atributos e Anulabilidade dos Atos",
@@ -41,7 +41,7 @@ export const DEMO_STUDY_DATASET = [
   },
   {
     id: "demo-3",
-    materia: "Português",
+    materia: "Língua Portuguesa [Demo]",
     aula: "Aula 01",
     conteudo: "Sintaxe",
     assunto: "Crase e Regência Verbal",
@@ -56,7 +56,7 @@ export const DEMO_STUDY_DATASET = [
   },
   {
     id: "demo-4",
-    materia: "Raciocínio Lógico",
+    materia: "Raciocínio Lógico [Demo]",
     aula: "Aula 03",
     conteudo: "Lógica de Proposições",
     assunto: "Tabela Verdade e Equivalências Lógicas",
@@ -71,7 +71,7 @@ export const DEMO_STUDY_DATASET = [
   },
   {
     id: "demo-5",
-    materia: "Direito Constitucional",
+    materia: "Direito Constitucional [Demo]",
     aula: "Aula 01",
     conteudo: "Princípios Fundamentais",
     assunto: "Fundamentos e Objetivos da República",
@@ -86,22 +86,7 @@ export const DEMO_STUDY_DATASET = [
   },
   {
     id: "demo-6",
-    materia: "Administração Financeira (AFO)",
-    aula: "Aula 05",
-    conteudo: "Orçamento Público",
-    assunto: "Princípios Orçamentários (Unidade, Universalidade)",
-    dataCriacao: "2026-08-13",
-    tempoLiquidoMin: 105,
-    totalQuestoes: 30,
-    feitas: 30,
-    acertos: 21,
-    erros: 9,
-    observacoes: "Atenção às exceções do princípio da exclusividade (créditos suplementares).",
-    url: "#"
-  },
-  {
-    id: "demo-7",
-    materia: "Informática",
+    materia: "Informática [Demo]",
     aula: "Aula 02",
     conteudo: "Segurança da Informação",
     assunto: "Malwares, Phishing e Ransomware",
@@ -112,21 +97,6 @@ export const DEMO_STUDY_DATASET = [
     acertos: 23,
     erros: 2,
     observacoes: "Diferença entre Trojan e Worm bem assimilada.",
-    url: "#"
-  },
-  {
-    id: "demo-8",
-    materia: "Direito Administrativo",
-    aula: "Aula 05",
-    conteudo: "Licitações (Lei 14.133/21)",
-    assunto: "Modalidades e Critérios de Julgamento",
-    dataCriacao: "2026-08-11",
-    tempoLiquidoMin: 130,
-    totalQuestoes: 30,
-    feitas: 30,
-    acertos: 20,
-    erros: 10,
-    observacoes: "Matéria nova com pegadinhas sobre Diálogo Competitivo. Fazer mais questões.",
     url: "#"
   }
 ];

@@ -30,12 +30,12 @@ exports.handler = async (event, context) => {
       event.headers["x-notion-key"] ||
       process.env.NOTION_KEY;
 
-    let databaseId =
+    let databaseIdInput =
       body.databaseId ||
       event.headers["x-database-id"] ||
       process.env.NOTION_DATABASE_ID;
 
-    if (!notionKey || !databaseId) {
+    if (!notionKey || !databaseIdInput) {
       return {
         statusCode: 400,
         headers,
@@ -46,42 +46,58 @@ exports.handler = async (event, context) => {
       };
     }
 
-    // Sanitize Database ID (remove hyphens, query params if any)
-    databaseId = databaseId.trim().replace(/-/g, "");
+    // Split multiple database IDs if provided (comma or newline separated)
+    const databaseIds = String(databaseIdInput)
+      .split(/[\n,]+/)
+      .map(id => id.trim().replace(/-/g, ""))
+      .filter(Boolean);
+
+    if (databaseIds.length === 0) {
+      return {
+        statusCode: 400,
+        headers,
+        body: JSON.stringify({ error: "Nenhum ID de base de dados válido fornecido." })
+      };
+    }
 
     // Initialize Notion Client
     const notion = new Client({ auth: notionKey });
 
-    let results = [];
-    let hasMore = true;
-    let startCursor = undefined;
-    let pageCount = 0;
-    const MAX_PAGES = 30; // Up to 3,000 database items
+    let combinedResults = [];
+    const MAX_PAGES_PER_DB = 30; // Up to 3,000 items per database
 
-    // Fetch all pages from the database using full pagination
-    while (hasMore && pageCount < MAX_PAGES) {
-      const response = await notion.databases.query({
-        database_id: databaseId,
-        start_cursor: startCursor,
-        page_size: 100
-      });
+    // Query each database concurrently
+    await Promise.all(
+      databaseIds.map(async (dbId) => {
+        let hasMore = true;
+        let startCursor = undefined;
+        let pageCount = 0;
 
-      if (response && response.results) {
-        results.push(...response.results);
-      }
+        while (hasMore && pageCount < MAX_PAGES_PER_DB) {
+          const response = await notion.databases.query({
+            database_id: dbId,
+            start_cursor: startCursor,
+            page_size: 100
+          });
 
-      hasMore = Boolean(response.has_more);
-      startCursor = response.next_cursor;
-      pageCount++;
-    }
+          if (response && response.results) {
+            combinedResults.push(...response.results);
+          }
+
+          hasMore = Boolean(response.has_more);
+          startCursor = response.next_cursor;
+          pageCount++;
+        }
+      })
+    );
 
     return {
       statusCode: 200,
       headers,
       body: JSON.stringify({
         success: true,
-        count: results.length,
-        results
+        count: combinedResults.length,
+        results: combinedResults
       })
     };
   } catch (error) {
@@ -89,7 +105,7 @@ exports.handler = async (event, context) => {
 
     let userFriendlyMsg = error.message || "Erro desconhecido ao comunicar com a API do Notion.";
     if (error.code === "object_not_found") {
-      userFriendlyMsg = "Base de dados não encontrada. Verifique se adicionou a conexão 'Dashboard de Estudos' nas opções (...) da sua tabela no Notion.";
+      userFriendlyMsg = "Uma ou mais bases de dados não foram encontradas. Verifique se adicionou a conexão 'Dashboard de Estudos' nas opções (...) de todas as suas tabelas no Notion.";
     } else if (error.code === "unauthorized") {
       userFriendlyMsg = "Token de acesso do Notion inválido ou sem permissão. Verifique a chave inserida.";
     }

@@ -78,7 +78,6 @@ export function SubjectPerformanceChart({ records = [] }) {
       .sort((a, b) => {
         switch (sortBy) {
           case "NUMERACAO_ASC": {
-            // Sort alphabetically by materia first, then numerically by numStr ascending
             const matCmp = a.materia.localeCompare(b.materia);
             if (matCmp !== 0) return matCmp;
             return a.numStr.localeCompare(b.numStr, undefined, { numeric: true });
@@ -217,37 +216,157 @@ export function SubjectTimeChart({ materias = [] }) {
   );
 }
 
-export function DailyEvolutionChart({ evolucao = [] }) {
-  if (!evolucao.length) return <p className="metric-subtext">Sem registros recentes.</p>;
+/**
+ * Portuguese Month Name Helper
+ */
+const MONTH_NAMES = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
 
-  const maxHoras = Math.max(...evolucao.map(e => parseFloat(e.tempoHoras)), 1);
+/**
+ * Get start of week date string (Monday)
+ */
+function getWeekStartDateStr(dateStr) {
+  const d = new Date(dateStr + "T00:00:00");
+  if (isNaN(d.getTime())) return dateStr;
+  const day = d.getDay();
+  const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+  const monday = new Date(d.setDate(diff));
+  const mm = String(monday.getMonth() + 1).padStart(2, '0');
+  const dd = String(monday.getDate()).padStart(2, '0');
+  return `${dd}/${mm}`;
+}
+
+/**
+ * Daily / Weekly / Monthly Progress Chart Component
+ */
+export function DailyProgressChart({ records = [], evolucao = [] }) {
+  const [granularity, setGranularity] = useState("DIA"); // "DIA" | "SEMANA" | "MES"
+
+  // Aggregate liquid study hours based on chosen granularity
+  const aggregatedData = useMemo(() => {
+    // If records array is provided, compute from raw records; else fallback to evolucao array
+    const sourceRecords = (records && records.length > 0) ? records : [];
+
+    if (sourceRecords.length > 0) {
+      const map = {};
+
+      sourceRecords.forEach(r => {
+        const dateStr = r.dataCriacao || "Outras";
+        const mins = r.tempoLiquidoMin || 0;
+
+        let key = dateStr;
+        let displayLabel = dateStr;
+
+        if (granularity === "DIA") {
+          key = dateStr;
+          // Format YYYY-MM-DD -> DD/MM
+          if (dateStr.includes("-")) {
+            const parts = dateStr.split("-");
+            if (parts.length === 3) displayLabel = `${parts[2]}/${parts[1]}`;
+          }
+        } else if (granularity === "SEMANA") {
+          const weekStart = getWeekStartDateStr(dateStr);
+          key = `Semana_${weekStart}`;
+          displayLabel = `Sem ${weekStart}`;
+        } else if (granularity === "MES") {
+          // YYYY-MM
+          const parts = dateStr.split("-");
+          if (parts.length >= 2) {
+            const yearShort = parts[0].slice(2);
+            const monthIdx = parseInt(parts[1], 10) - 1;
+            key = `${parts[0]}-${parts[1]}`;
+            displayLabel = `${MONTH_NAMES[monthIdx] || parts[1]}/${yearShort}`;
+          }
+        }
+
+        if (!map[key]) {
+          map[key] = { key, displayLabel, rawDate: dateStr, tempoMin: 0, sessoes: 0 };
+        }
+        map[key].tempoMin += mins;
+        map[key].sessoes += 1;
+      });
+
+      return Object.values(map)
+        .sort((a, b) => a.rawDate.localeCompare(b.rawDate))
+        .map(item => ({
+          ...item,
+          tempoHoras: (item.tempoMin / 60).toFixed(1)
+        }));
+    }
+
+    // Fallback if only evolucao array is provided
+    return evolucao.map(e => ({
+      key: e.date,
+      displayLabel: e.date.includes("-") ? `${e.date.split("-")[2]}/${e.date.split("-")[1]}` : e.date,
+      tempoHoras: e.tempoHoras || (e.tempoMin / 60).toFixed(1)
+    }));
+  }, [records, evolucao, granularity]);
+
+  if (!aggregatedData.length) {
+    return <p className="metric-subtext">Sem registros de estudo recentes.</p>;
+  }
+
+  const maxHoras = Math.max(...aggregatedData.map(e => parseFloat(e.tempoHoras)), 1);
+  const displayItems = aggregatedData.slice(granularity === "DIA" ? -14 : -12);
 
   return (
-    <div className="chart-container" style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem", height: "160px", paddingTop: "1rem" }}>
-      {evolucao.slice(-10).map((item, idx) => {
-        const heightPercent = Math.max(10, (parseFloat(item.tempoHoras) / maxHoras) * 100);
-        return (
-          <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "0.25rem", height: "100%", justifyContent: "flex-end" }}>
-            <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--accent-primary)" }}>
-              {item.tempoHoras}h
-            </span>
-            <div
-              style={{
-                width: "100%",
-                maxwidth: "32px",
-                height: `${heightPercent}%`,
-                background: "linear-gradient(180deg, var(--accent-primary), rgba(59, 130, 246, 0.3))",
-                borderRadius: "var(--radius-sm)",
-                transition: "height 0.4s ease"
-              }}
-              title={`${item.date}: ${item.tempoHoras}h de estudo e ${item.questoes} questões`}
-            />
-            <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>
-              {item.date.slice(5)}
-            </span>
-          </div>
-        );
-      })}
+    <div>
+      {/* Time Granularity Toggle Controls */}
+      <div style={{ display: "flex", justifyContent: "flex-end", marginBottom: "1rem" }}>
+        <div className="button-group" style={{ display: "flex", gap: "0.25rem", background: "var(--bg-secondary)", padding: "0.2rem", borderRadius: "var(--radius-sm)", border: "1px solid var(--border-color)" }}>
+          <button
+            className={`btn ${granularity === "DIA" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setGranularity("DIA")}
+            style={{ padding: "0.25rem 0.65rem", fontSize: "0.75rem", borderRadius: "var(--radius-sm)" }}
+          >
+            📅 Dia (Diário)
+          </button>
+          <button
+            className={`btn ${granularity === "SEMANA" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setGranularity("SEMANA")}
+            style={{ padding: "0.25rem 0.65rem", fontSize: "0.75rem", borderRadius: "var(--radius-sm)" }}
+          >
+            🗓️ Semana
+          </button>
+          <button
+            className={`btn ${granularity === "MES" ? "btn-primary" : "btn-secondary"}`}
+            onClick={() => setGranularity("MES")}
+            style={{ padding: "0.25rem 0.65rem", fontSize: "0.75rem", borderRadius: "var(--radius-sm)" }}
+          >
+            📆 Mês
+          </button>
+        </div>
+      </div>
+
+      {/* Vertical Bar Chart */}
+      <div className="chart-container" style={{ display: "flex", alignItems: "flex-end", gap: "0.5rem", height: "170px", paddingTop: "1rem" }}>
+        {displayItems.map((item, idx) => {
+          const heightPercent = Math.max(10, (parseFloat(item.tempoHoras) / maxHoras) * 100);
+          return (
+            <div key={idx} style={{ flex: 1, display: "flex", flexDirection: "column", alignItems: "center", gap: "0.25rem", height: "100%", justifyContent: "flex-end" }}>
+              <span style={{ fontSize: "0.7rem", fontWeight: 700, color: "var(--accent-primary)" }}>
+                {item.tempoHoras}h
+              </span>
+              <div
+                style={{
+                  width: "100%",
+                  maxwidth: "36px",
+                  height: `${heightPercent}%`,
+                  background: "linear-gradient(180deg, var(--accent-primary), rgba(59, 130, 246, 0.3))",
+                  borderRadius: "var(--radius-sm)",
+                  transition: "height 0.4s ease"
+                }}
+                title={`${item.displayLabel}: ${item.tempoHoras}h líquidas`}
+              />
+              <span style={{ fontSize: "0.65rem", color: "var(--text-muted)", whiteSpace: "nowrap", textOverflow: "ellipsis", overflow: "hidden", width: "100%", textAlign: "center" }}>
+                {item.displayLabel}
+              </span>
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
+
+// Alias export for backward compatibility
+export const DailyEvolutionChart = DailyProgressChart;

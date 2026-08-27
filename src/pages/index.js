@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import Header from "../components/Header";
 import MetricCard from "../components/MetricCard";
-import { SubjectPerformanceChart, SubjectTimeChart, DailyEvolutionChart } from "../components/Charts";
+import { SubjectPerformanceChart, SubjectTimeChart, DailyProgressChart } from "../components/Charts";
 import CriticalTopics from "../components/CriticalTopics";
 import SettingsModal from "../components/SettingsModal";
 import PWAInstallBanner from "../components/PWAInstallBanner";
@@ -288,7 +288,7 @@ export default function IndexPage() {
 
       {/* Main Analytics Dashboard Grid */}
       <section className="dashboard-grid">
-        {/* Left Column: Performance by Subject & Numeração */}
+        {/* Left Column: Performance by Subject & Progresso Diário */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
           {/* Chart 1: Performance by Subject + Numeração */}
           <div className="glass-card">
@@ -298,12 +298,12 @@ export default function IndexPage() {
             <SubjectPerformanceChart records={records} />
           </div>
 
-          {/* Chart 2: Daily Study Evolution */}
+          {/* Chart 2: Progresso Diário */}
           <div className="glass-card">
             <h3 className="section-title">
-              <span>📈 Evolução Diária de Horas Líquidas</span>
+              <span>📈 Progresso Diário</span>
             </h3>
-            <DailyEvolutionChart evolucao={analytics.evolucaoDiaria} />
+            <DailyProgressChart records={records} evolucao={analytics.evolucaoDiaria} />
           </div>
         </div>
 

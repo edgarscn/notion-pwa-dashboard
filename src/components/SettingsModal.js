@@ -17,27 +17,24 @@ export default function SettingsModal({
   const handleSubmit = (e) => {
     e.preventDefault();
     if (!notionKey.trim() || !databaseId.trim()) {
-      setErrorMsg("Por favor, preencha tanto o Access Token quanto o ID da Base de Dados.");
+      setErrorMsg("Por favor, preencha tanto o Access Token quanto o ID/Link das Bases de Dados.");
       return;
     }
 
-    // Clean Database ID if user pasted full Notion URL
-    let cleanedDbId = databaseId.trim();
-    if (cleanedDbId.includes("notion.so")) {
-      const parts = cleanedDbId.split("?")[0].split("/");
-      const lastPart = parts[parts.length - 1];
-      const match = lastPart.match(/([a-f0-9]{32})/i) || lastPart.match(/([a-f0-9-]{36})/i);
-      if (match) {
-        cleanedDbId = match[1].replace(/-/g, "");
-      } else {
-        cleanedDbId = lastPart.replace(/-/g, "");
-      }
+    // Extract all 32-hex Database IDs from pasted URLs or comma-separated string
+    const inputStr = databaseId.trim();
+    const matches = inputStr.match(/([a-f0-9]{32})/gi) || inputStr.match(/([a-f0-9-]{36})/gi);
+    
+    let cleanedDbIds = "";
+    if (matches && matches.length > 0) {
+      const uniqueIds = Array.from(new Set(matches.map(id => id.replace(/-/g, "").toLowerCase())));
+      cleanedDbIds = uniqueIds.join(",");
     } else {
-      cleanedDbId = cleanedDbId.replace(/-/g, "");
+      cleanedDbIds = inputStr.replace(/-/g, "");
     }
 
     setErrorMsg("");
-    onSaveConfig({ notionKey: notionKey.trim(), databaseId: cleanedDbId });
+    onSaveConfig({ notionKey: notionKey.trim(), databaseId: cleanedDbIds });
     onClose();
   };
 
@@ -51,13 +48,12 @@ export default function SettingsModal({
 
         <div style={{ background: "rgba(59, 130, 246, 0.1)", padding: "1rem", borderRadius: "var(--radius-md)", marginBottom: "1.25rem", border: "1px solid rgba(59, 130, 246, 0.2)" }}>
           <h4 style={{ fontSize: "0.875rem", fontWeight: 700, marginBottom: "0.35rem", color: "var(--accent-primary)" }}>
-            💡 Como pegar o ID da sua tabela (ex: "Histórico de Revisões" ou "Blocos de estudo"):
+            💡 Conecte uma ou ambas as bases de dados (Histórico de Revisões + Blocos de estudo):
           </h4>
           <ol style={{ fontSize: "0.8rem", paddingLeft: "1.2rem", color: "var(--text-secondary)", display: "flex", flexDirection: "column", gap: "0.35rem" }}>
-            <li>Clique na tabela desejada no Notion (ex: <strong>Histórico de Revisões</strong> ou <strong>Blocos de estudo</strong>).</li>
-            <li>No canto superior direito da página, clique nos <code>...</code> &gt; <strong>Copy link</strong> (ou copie o link da barra de navegação).</li>
-            <li>Cole o link completo no campo <strong>ID da Base de Dados</strong> abaixo (o sistema extrai o ID automaticamente!).</li>
-            <li>Lembre-se de clicar nos <code>...</code> da tabela no Notion &gt; <strong>Connections</strong> &gt; Adicionar <strong>Dashboard de Estudos</strong>.</li>
+            <li>No Notion, abra a tabela (ex: <strong>Histórico de Revisões</strong>) &gt; <code>...</code> &gt; <strong>Copy link</strong>.</li>
+            <li>Se quiser conectar as <strong>duas tabelas ao mesmo tempo</strong>, cole os dois links separados por vírgula no campo abaixo!</li>
+            <li>Lembre-se de ir nas duas tabelas no Notion &gt; <code>...</code> &gt; <strong>Connections</strong> &gt; Adicionar <strong>Dashboard de Estudos</strong>.</li>
           </ol>
         </div>
 
@@ -80,11 +76,11 @@ export default function SettingsModal({
           </div>
 
           <div className="form-group">
-            <label className="form-label">ID ou Link da Base de Dados (ex: Histórico de Revisões)</label>
+            <label className="form-label">ID(s) ou Link(s) das Bases de Dados (Cole links de ambas as bases separados por vírgula)</label>
             <input
               type="text"
               className="form-input"
-              placeholder="Cole o ID (32 caracteres) ou o Link completo da tabela no Notion"
+              placeholder="Cole os links das bases (ex: link_historico, link_blocos)"
               value={databaseId}
               onChange={e => setDatabaseId(e.target.value)}
             />

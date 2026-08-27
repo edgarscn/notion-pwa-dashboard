@@ -1,17 +1,29 @@
 import React, { useState, useMemo } from "react";
 
 /**
- * Format lesson/aula string into clean two-digit numbering (e.g. "1" -> "01", "Aula 7" -> "07")
+ * Clean Matéria name by stripping suffix terms like "Revisão", "Rev", "(Revisão)", "Exercícios"
  */
-function formatAulaNumber(aulaStr = "") {
-  if (!aulaStr || aulaStr === "-") return "";
-  const str = String(aulaStr).trim();
-  const digitsMatch = str.match(/\d+/);
+function cleanMateriaName(matStr = "") {
+  if (!matStr) return "Geral";
+  return matStr
+    .replace(/\s*[\(\-\_]?\s*(revisão|revisao|rev|exercicios|exercícios|simulado|teoria)\b.*/gi, "")
+    .trim() || matStr.trim();
+}
+
+/**
+ * Format lesson/aula string into clean two-digit numbering (e.g. "1" -> "01", "01 revisão" -> "01")
+ * Ignoring any extra suffix text ("Revisão", "Rev", etc.)
+ */
+function extractAulaNumber(aulaStr = "", conteudoStr = "") {
+  const textToSearch = `${aulaStr || ""} ${conteudoStr || ""}`.trim();
+  if (!textToSearch || textToSearch === "-") return "00";
+
+  const digitsMatch = textToSearch.match(/\b\d+\b/) || textToSearch.match(/\d+/);
   if (digitsMatch) {
     const num = parseInt(digitsMatch[0], 10);
     return num < 10 ? `0${num}` : `${num}`;
   }
-  return str;
+  return "00";
 }
 
 export function SubjectPerformanceChart({ records = [] }) {
@@ -19,19 +31,19 @@ export function SubjectPerformanceChart({ records = [] }) {
   const [filterNumeracao, setFilterNumeracao] = useState("");
   const [sortBy, setSortBy] = useState("NUMERACAO_ASC");
 
-  // Group records by Matéria + Numeração (e.g. "Direito Penal 01")
+  // Group records strictly by Clean Matéria + Numbering (e.g. "Direito Administrativo 01")
   const items = useMemo(() => {
     if (!Array.isArray(records) || records.length === 0) return [];
 
     const groupedMap = {};
 
     records.forEach(r => {
-      const mat = r.materia || "Geral";
-      const numStr = formatAulaNumber(r.aula);
-      const titleLabel = numStr ? `${mat} ${numStr}` : mat;
+      const mat = cleanMateriaName(r.materia || "Geral");
+      const numStr = extractAulaNumber(r.aula, r.conteudo);
+      const titleLabel = numStr && numStr !== "00" ? `${mat} ${numStr}` : mat;
       const baseQuestoes = r.totalQuestoes > 0 ? r.totalQuestoes : (r.feitas > 0 ? r.feitas : (r.acertos + r.erros));
 
-      const key = `${mat}||${numStr}`;
+      const key = `${mat.toLowerCase()}||${numStr}`;
 
       if (!groupedMap[key]) {
         groupedMap[key] = {
@@ -71,7 +83,7 @@ export function SubjectPerformanceChart({ records = [] }) {
   const processedItems = useMemo(() => {
     return items
       .filter(item => {
-        const matchMat = selectedMateria === "TODAS" || item.materia === selectedMateria;
+        const matchMat = selectedMateria === "TODAS" || item.materia.toLowerCase() === selectedMateria.toLowerCase();
         const matchNum = !filterNumeracao.trim() || item.numStr.includes(filterNumeracao.trim());
         return matchMat && matchNum;
       })
@@ -243,7 +255,6 @@ export function DailyProgressChart({ records = [], evolucao = [] }) {
 
   // Aggregate liquid study hours based on chosen granularity
   const aggregatedData = useMemo(() => {
-    // If records array is provided, compute from raw records; else fallback to evolucao array
     const sourceRecords = (records && records.length > 0) ? records : [];
 
     if (sourceRecords.length > 0) {
@@ -258,7 +269,6 @@ export function DailyProgressChart({ records = [], evolucao = [] }) {
 
         if (granularity === "DIA") {
           key = dateStr;
-          // Format YYYY-MM-DD -> DD/MM
           if (dateStr.includes("-")) {
             const parts = dateStr.split("-");
             if (parts.length === 3) displayLabel = `${parts[2]}/${parts[1]}`;
@@ -268,7 +278,6 @@ export function DailyProgressChart({ records = [], evolucao = [] }) {
           key = `Semana_${weekStart}`;
           displayLabel = `Sem ${weekStart}`;
         } else if (granularity === "MES") {
-          // YYYY-MM
           const parts = dateStr.split("-");
           if (parts.length >= 2) {
             const yearShort = parts[0].slice(2);
@@ -293,7 +302,6 @@ export function DailyProgressChart({ records = [], evolucao = [] }) {
         }));
     }
 
-    // Fallback if only evolucao array is provided
     return evolucao.map(e => ({
       key: e.date,
       displayLabel: e.date.includes("-") ? `${e.date.split("-")[2]}/${e.date.split("-")[1]}` : e.date,
@@ -368,5 +376,4 @@ export function DailyProgressChart({ records = [], evolucao = [] }) {
   );
 }
 
-// Alias export for backward compatibility
 export const DailyEvolutionChart = DailyProgressChart;

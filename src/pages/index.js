@@ -3,7 +3,6 @@ import Header from "../components/Header";
 import MetricCard from "../components/MetricCard";
 import { SubjectPerformanceChart, SubjectTimeChart, DailyEvolutionChart } from "../components/Charts";
 import CriticalTopics from "../components/CriticalTopics";
-import DataTable from "../components/DataTable";
 import SettingsModal from "../components/SettingsModal";
 import PWAInstallBanner from "../components/PWAInstallBanner";
 import {
@@ -267,7 +266,7 @@ export default function IndexPage() {
         <MetricCard
           title="Taxa de Assertividade"
           value={`${analytics.taxaAssertividade}%`}
-          subtext={`${analytics.totalAcertos} acertos de ${analytics.totalFeitas} questões`}
+          subtext={`${analytics.totalAcertos} acertos de ${analytics.totalBaseQuestoes || analytics.totalFeitas} questões`}
           icon="🎯"
           trendClass={analytics.taxaAssertividade >= 80 ? "metric-trend-high" : analytics.taxaAssertividade >= 70 ? "metric-trend-mid" : "metric-trend-low"}
         />
@@ -289,14 +288,14 @@ export default function IndexPage() {
 
       {/* Main Analytics Dashboard Grid */}
       <section className="dashboard-grid">
-        {/* Left Column: Visual Charts */}
+        {/* Left Column: Performance by Subject & Numeração */}
         <div style={{ display: "flex", flexDirection: "column", gap: "1.5rem" }}>
-          {/* Chart 1: Performance by Subject */}
+          {/* Chart 1: Performance by Subject + Numeração */}
           <div className="glass-card">
             <h3 className="section-title">
-              <span>📊 Rendimento de Questões por Matéria (% Acertos)</span>
+              <span>📊 Rendimento de Questões por Matéria & Numeração</span>
             </h3>
-            <SubjectPerformanceChart materias={analytics.materiasBreakdown} />
+            <SubjectPerformanceChart records={records} />
           </div>
 
           {/* Chart 2: Daily Study Evolution */}
@@ -321,11 +320,6 @@ export default function IndexPage() {
           {/* Critical Topics Warning Widget */}
           <CriticalTopics materiasCriticas={analytics.materiasCriticas} />
         </div>
-      </section>
-
-      {/* Detailed Searchable Data Table */}
-      <section style={{ marginBottom: "2rem" }}>
-        <DataTable records={records} />
       </section>
 
       {/* Notion Settings Modal */}

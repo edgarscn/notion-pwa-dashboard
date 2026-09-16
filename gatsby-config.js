@@ -6,22 +6,23 @@ const adapter = require("gatsby-adapter-netlify").default;
 module.exports = {
   adapter: adapter(),
   siteMetadata: {
-    title: `Dashboard de Estudos Concursos`,
-    description: `Painel analítico PWA para monitorar horas líquidas de estudo, assertividade de questões e rendimento por matéria sincronizado com o Notion.`,
+    title: `Notion PWA Workspace`,
+    description: `Aplicação web modular inspirada no Notion, local-first com Dexie.js, PWA e visualizações em Tabela e Kanban.`,
     author: `@edgar`,
-    siteUrl: `https://notion-estudos-dashboard.netlify.app`,
+    siteUrl: `https://notion-pwa-workspace.netlify.app`,
   },
   plugins: [
+    `gatsby-plugin-postcss`,
     {
       resolve: `gatsby-plugin-manifest`,
       options: {
-        name: `Dashboard de Estudos Concursos`,
-        short_name: `Estudos Notion`,
+        name: `Notion PWA Workspace`,
+        short_name: `Notion PWA`,
         start_url: `/`,
-        background_color: `#0f172a`,
-        theme_color: `#3b82f6`,
+        background_color: `#ffffff`,
+        theme_color: `#2563eb`,
         display: `standalone`,
-        icon: `static/icon.svg`, // PWA icon
+        icon: `static/icon.svg`,
       },
     },
     `gatsby-plugin-offline`,

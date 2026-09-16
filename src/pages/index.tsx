@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import '../styles/global.css';
 import { AppLayout } from '../components/layout/AppLayout';
 
 export default function IndexPage() {
@@ -10,7 +11,7 @@ export default function IndexPage() {
 
   if (!isClient) {
     return (
-      <div className="h-screen w-screen flex items-center justify-center bg-white text-gray-400 text-sm">
+      <div className="h-screen w-screen flex flex-col items-center justify-center bg-white text-gray-400 text-sm font-sans">
         Carregando Workspace Notion PWA...
       </div>
     );

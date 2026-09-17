@@ -17,10 +17,18 @@ export const AppLayout: React.FC = () => {
   const [activePageId, setActivePageId] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
 
-  // Seed on initial boot
+  // Seed on initial boot and check for Bloco de Estudos
   useEffect(() => {
     async function init() {
       await seedInitialData();
+      const blocoDb = await db.databases.get('db-bloco-estudos');
+      const blocoRecordsCount = blocoDb
+        ? await db.records.where('databaseId').equals('db-bloco-estudos').count()
+        : 0;
+
+      if (!blocoDb || blocoRecordsCount === 0) {
+        await resetAndReseedDatabase();
+      }
       setIsDbLoaded(true);
     }
     init();
@@ -77,7 +85,7 @@ export const AppLayout: React.FC = () => {
     : [];
 
   const handleResetData = async () => {
-    if (window.confirm('Restaurar a base de dados inicial Bloco de Estudos?')) {
+    if (window.confirm('Restaurar a base de dados inicial Bloco de Estudos com suas aulas e matérias?')) {
       await resetAndReseedDatabase();
       setActiveTeamspaceId('ts-estudos');
       setActivePageId('page-bloco-estudos');

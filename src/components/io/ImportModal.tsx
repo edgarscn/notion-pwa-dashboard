@@ -48,14 +48,15 @@ export const ImportModal: React.FC<ImportModalProps> = ({
       }
 
       setParsedData(data);
-      setNewDbTitle(selectedFile.name.replace(/\.[^/.]+$/, ''));
+      setNewDbTitle(selectedFile.name.replace(/\.[^/.]+$/, '') || 'Bloco de Estudos');
 
-      // Initial column mapping if importing to existing database
+      // Auto-map headers if importing into current database
       if (currentDatabase) {
         const mapping: Record<string, string> = {};
         data.headers.forEach((h) => {
+          const cleanH = h.trim().toLowerCase();
           const match = currentDatabase.properties.find(
-            (p) => p.name.toLowerCase() === h.toLowerCase()
+            (p) => p.name.trim().toLowerCase() === cleanH
           );
           if (match) mapping[h] = match.id;
         });
@@ -75,8 +76,8 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
       if (importMode === 'new_db' || !targetDbId) {
         // 1. Create a new Page & Database
-        const pageTitle = newDbTitle.trim() || 'Base Importada';
-        const page = await createPage(teamspaceId, null, pageTitle, true, '📊');
+        const pageTitle = newDbTitle.trim() || 'Bloco de Estudos Importado';
+        const page = await createPage(teamspaceId, null, pageTitle, true, '📚');
 
         // Fetch created database
         const { db } = await import('../../db');
@@ -87,14 +88,30 @@ export const ImportModal: React.FC<ImportModalProps> = ({
 
         // Auto-detect properties from headers
         for (let i = 0; i < parsedData.headers.length; i++) {
-          const header = parsedData.headers[i];
-          const sampleVal = parsedData.rows.find((r) => r[header] !== undefined)?.[header];
+          const header = parsedData.headers[i].trim();
+          if (!header || header === '.') continue;
+
+          const headerLower = header.toLowerCase();
+          const sampleVal = parsedData.rows.find((r) => r[header] !== undefined && r[header] !== '')?.[header];
 
           let propType: PropertyType = 'text';
-          if (typeof sampleVal === 'number' || (!isNaN(Number(sampleVal)) && sampleVal !== '')) {
+
+          if (headerLower.includes('taxa de acerto')) {
+            propType = 'formula';
+          } else if (headerLower.includes('matéria') || headerLower.includes('aula') || headerLower.includes('status')) {
+            propType = 'select';
+          } else if (
+            headerLower.includes('questões') ||
+            headerLower.includes('feitas') ||
+            headerLower.includes('acertos') ||
+            headerLower.includes('erros') ||
+            headerLower.includes('tempo') ||
+            typeof sampleVal === 'number' ||
+            (!isNaN(Number(sampleVal)) && sampleVal !== '')
+          ) {
             propType = 'number';
-          } else if (typeof sampleVal === 'string' && /^\d{4}-\d{2}-\d{2}/.test(sampleVal)) {
-            propType = 'date';
+          } else if (headerLower.includes('time') || headerLower.includes('data')) {
+            propType = 'created_time';
           }
 
           if (i > 0) {
@@ -102,6 +119,12 @@ export const ImportModal: React.FC<ImportModalProps> = ({
               id: `prop-imp-${i}-${Date.now()}`,
               name: header,
               type: propType,
+              formulaConfig: propType === 'formula'
+                ? { expression: headerLower.includes('cespe')
+                    ? 'if(prop("Feitas") > 0, round((prop("Acertos") - prop("Erros")) / prop("Feitas") * 100, 1) + "%", "N/A")'
+                    : 'if(prop("Feitas") > 0, round(prop("Acertos") / prop("Feitas") * 100, 1) + "%", "N/A")'
+                  }
+                : undefined,
             });
           }
         }
@@ -119,17 +142,26 @@ export const ImportModal: React.FC<ImportModalProps> = ({
         if (importMode === 'new_db') {
           targetDb.properties.forEach((prop) => {
             const fileHeader = parsedData.headers.find(
-              (h) => h.toLowerCase() === prop.name.toLowerCase()
+              (h) => h.trim().toLowerCase() === prop.name.trim().toLowerCase()
             );
             if (fileHeader) {
-              rowValues[prop.id] = row[fileHeader];
+              let val = row[fileHeader];
+              if (prop.type === 'number' && typeof val === 'string') {
+                val = val === '' ? null : Number(val.replace(',', '.'));
+              }
+              rowValues[prop.id] = val;
             }
           });
         } else {
           // Map via columnMapping
           Object.entries(columnMapping).forEach(([fileHeader, targetPropId]) => {
             if (targetPropId) {
-              rowValues[targetPropId] = row[fileHeader];
+              const targetProp = targetDb.properties.find((p) => p.id === targetPropId);
+              let val = row[fileHeader];
+              if (targetProp?.type === 'number' && typeof val === 'string') {
+                val = val === '' ? null : Number(val.replace(',', '.'));
+              }
+              rowValues[targetPropId] = val;
             }
           });
         }
@@ -165,10 +197,10 @@ export const ImportModal: React.FC<ImportModalProps> = ({
           <label htmlFor="file-upload" className="cursor-pointer flex flex-col items-center gap-2">
             <FileSpreadsheet className="w-10 h-10 text-blue-600" />
             <span className="text-sm font-semibold text-gray-700">
-              {file ? file.name : 'Clique para selecionar arquivo .csv ou .xlsx'}
+              {file ? file.name : 'Clique para selecionar arquivo .csv do Notion'}
             </span>
             <span className="text-xs text-gray-400">
-              Suporta planilhas CSV e tabelas Excel Microsoft
+              Suporta planilhas de estudo exportadas do Notion (.csv e .xlsx)
             </span>
           </label>
         </div>
@@ -185,7 +217,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
             <div className="flex items-center gap-2 text-xs font-semibold text-emerald-700 bg-emerald-50 p-2.5 rounded-lg border border-emerald-200">
               <Check className="w-4 h-4 text-emerald-600" />
               <span>
-                {parsedData.headers.length} colunas e {parsedData.rows.length} registros prontos para importação!
+                {parsedData.headers.length} colunas e {parsedData.rows.length} registros detectados!
               </span>
             </div>
 
@@ -228,7 +260,7 @@ export const ImportModal: React.FC<ImportModalProps> = ({
                   type="text"
                   value={newDbTitle}
                   onChange={(e) => setNewDbTitle(e.target.value)}
-                  placeholder="Nome da base..."
+                  placeholder="Ex: Bloco de Estudos"
                   className="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>

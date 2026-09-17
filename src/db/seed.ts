@@ -8,6 +8,15 @@ export async function seedInitialData() {
   const now = new Date().toISOString();
 
   // 1. Teamspaces
+  const teamspaceStudies: Teamspace = {
+    id: 'ts-estudos',
+    name: '📚 Concursos & Estudos',
+    icon: '📚',
+    description: 'Gestão de horas líquidas, resolução de questões e revisões programadas.',
+    createdAt: now,
+    updatedAt: now,
+  };
+
   const teamspaceEng: Teamspace = {
     id: 'ts-eng',
     name: '🚀 Engenharia & Produto',
@@ -17,16 +26,19 @@ export async function seedInitialData() {
     updatedAt: now,
   };
 
-  const teamspacePersonal: Teamspace = {
-    id: 'ts-personal',
-    name: '🏡 Pessoal & Estudos',
-    icon: '🏡',
-    description: 'Anotações pessoais, leitura e planejamento de carreira.',
+  // 2. Pages
+  const pageBlocoEstudos: Page = {
+    id: 'page-bloco-estudos',
+    teamspaceId: 'ts-estudos',
+    parentId: null,
+    title: '📚 Bloco de Estudos',
+    icon: '📚',
+    isDatabase: true,
+    order: 0,
     createdAt: now,
     updatedAt: now,
   };
 
-  // 2. Pages
   const pageProjects: Page = {
     id: 'page-projects',
     teamspaceId: 'ts-eng',
@@ -39,57 +51,79 @@ export async function seedInitialData() {
     updatedAt: now,
   };
 
-  const pageClients: Page = {
-    id: 'page-clients',
-    teamspaceId: 'ts-eng',
-    parentId: null,
-    title: '🏢 Clientes & Parceiros',
-    icon: '🏢',
-    isDatabase: true,
-    order: 1,
+  // 3. Database Schema for "Bloco de Estudos"
+  const dbBlocoEstudos: Database = {
+    id: 'db-bloco-estudos',
+    pageId: 'page-bloco-estudos',
+    title: 'Bloco de Estudos',
+    description: 'Tabela de controle de questões, taxa de acerto tradicional e Cespe (Certo/Errado), tempo de estudo e revisões.',
+    defaultView: 'table',
     createdAt: now,
     updatedAt: now,
+    properties: [
+      {
+        id: 'p-materia',
+        name: 'Matéria',
+        type: 'select',
+        options: [
+          { id: 'm-port', name: 'Português', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+          { id: 'm-penal', name: 'Direito Penal', color: 'bg-red-100 text-red-700 border-red-300' },
+          { id: 'm-info', name: 'Informática', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+          { id: 'm-rlm', name: 'Raciocínio Lógico', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+          { id: 'm-const', name: 'Direito Constitucional', color: 'bg-amber-100 text-amber-700 border-amber-300' },
+          { id: 'm-dpp', name: 'Direito Processual Penal', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
+          { id: 'm-adm', name: 'Direito Administrativo', color: 'bg-cyan-100 text-cyan-700 border-cyan-300' },
+          { id: 'm-civil', name: 'Direito Civil', color: 'bg-rose-100 text-rose-700 border-rose-300' },
+          { id: 'm-dh', name: 'Direitos Humanos', color: 'bg-green-100 text-green-700 border-green-300' },
+          { id: 'm-leg', name: 'Legislação Penal', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+          { id: 'm-rev', name: 'Revisão', color: 'bg-gray-100 text-gray-700 border-gray-300' },
+          { id: 'm-anki', name: 'Anki', color: 'bg-yellow-100 text-yellow-700 border-yellow-300' },
+        ],
+      },
+      {
+        id: 'p-aula',
+        name: 'Aula',
+        type: 'select',
+        options: [
+          { id: 'a-00', name: '00', color: 'bg-gray-100 text-gray-700 border-gray-300' },
+          { id: 'a-01', name: '01', color: 'bg-blue-100 text-blue-700 border-blue-300' },
+          { id: 'a-02', name: '02', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
+          { id: 'a-03', name: '03', color: 'bg-purple-100 text-purple-700 border-purple-300' },
+          { id: 'a-04', name: '04', color: 'bg-amber-100 text-amber-700 border-amber-300' },
+          { id: 'a-05', name: '05', color: 'bg-indigo-100 text-indigo-700 border-indigo-300' },
+          { id: 'a-06', name: '06', color: 'bg-rose-100 text-rose-700 border-rose-300' },
+          { id: 'a-07', name: '07', color: 'bg-cyan-100 text-cyan-700 border-cyan-300' },
+          { id: 'a-08', name: '08', color: 'bg-green-100 text-green-700 border-green-300' },
+          { id: 'a-09', name: '09', color: 'bg-teal-100 text-teal-700 border-teal-300' },
+          { id: 'a-10', name: '10', color: 'bg-orange-100 text-orange-700 border-orange-300' },
+          { id: 'a-11', name: '11', color: 'bg-violet-100 text-violet-700 border-violet-300' },
+          { id: 'a-12', name: '12', color: 'bg-pink-100 text-pink-700 border-pink-300' },
+        ],
+      },
+      { id: 'p-conteudo', name: 'Conteúdo', type: 'text' },
+      { id: 'p-feitas', name: 'Feitas', type: 'number', numberFormat: 'number' },
+      { id: 'p-acertos', name: 'Acertos', type: 'number', numberFormat: 'number' },
+      { id: 'p-erros', name: 'Erros', type: 'number', numberFormat: 'number' },
+      { id: 'p-em-branco', name: 'Em branco', type: 'number', numberFormat: 'number' },
+      { id: 'p-total-questoes', name: 'Total de questões', type: 'number', numberFormat: 'number' },
+      { id: 'p-tempo', name: 'Tempo de estudo (líquido)', type: 'number', numberFormat: 'number' },
+      {
+        id: 'p-taxa',
+        name: 'Taxa de acerto',
+        type: 'formula',
+        formulaConfig: { expression: 'if(prop("Feitas") > 0, round(prop("Acertos") / prop("Feitas") * 100, 1) + "%", "N/A")' },
+      },
+      {
+        id: 'p-taxa-cespe',
+        name: 'Taxa de acerto Cespe',
+        type: 'formula',
+        formulaConfig: { expression: 'if(prop("Feitas") > 0, round((prop("Acertos") - prop("Erros")) / prop("Feitas") * 100, 1) + "%", "N/A")' },
+      },
+      { id: 'p-created', name: 'Created time', type: 'created_time' },
+      { id: 'p-obs', name: 'Observações', type: 'text' },
+    ],
   };
 
-  const pageDoc: Page = {
-    id: 'page-doc',
-    teamspaceId: 'ts-eng',
-    parentId: 'page-projects', // Nested page!
-    title: '📚 Roteiro Técnico & Guias',
-    icon: '📚',
-    isDatabase: false,
-    content: `# Guias de Desenvolvimento Notion PWA
-
-Bem-vindo ao workspace! Esta é uma página de documento padrão aninhada sob a base de dados de projetos.
-
-### Funcionalidades do Sistema:
-- **Teamspaces**: Crie e alterne entre múltiplos ambientes de trabalho na barra lateral.
-- **Árvore de Páginas**: Aninhe documentos e bases de dados com suporte a drag-and-drop.
-- **Bases de Dados Inteligentes**:
-  - **Tabela**: Edição rápida inline com 9 tipos de propriedades.
-  - **Quadro (Kanban)**: Agrupamento automático por Status ou Select.
-  - **Fórmulas**: Expressões matemáticas como \`prop("Horas") * 50\`.
-  - **Relações & Rollups**: Vínculo bidirecional entre tabelas com agregação de soma, contagem e média.
-- **Suporte Offline / PWA**: Dados persistidos localmente no seu navegador usando IndexedDB (Dexie.js).
-`,
-    order: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  const pageBooks: Page = {
-    id: 'page-books',
-    teamspaceId: 'ts-personal',
-    parentId: null,
-    title: '📖 Biblioteca de Leituras',
-    icon: '📖',
-    isDatabase: true,
-    order: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
-
-  // 3. Databases
   const dbProjects: Database = {
     id: 'db-projects',
     pageId: 'page-projects',
@@ -110,226 +144,77 @@ Bem-vindo ao workspace! Esta é uma página de documento padrão aninhada sob a 
           { id: 'st-3', name: 'Concluído', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
         ],
       },
-      {
-        id: 'p-priority',
-        name: 'Prioridade',
-        type: 'select',
-        options: [
-          { id: 'opt-high', name: 'Alta', color: 'bg-red-100 text-red-700 border-red-300' },
-          { id: 'opt-med', name: 'Média', color: 'bg-amber-100 text-amber-700 border-amber-300' },
-          { id: 'opt-low', name: 'Baixa', color: 'bg-green-100 text-green-700 border-green-300' },
-        ],
-      },
       { id: 'p-hours', name: 'Horas Estimadas', type: 'number', numberFormat: 'number' },
-      { id: 'p-cost', name: 'Custo ($)', type: 'number', numberFormat: 'currency_usd' },
-      {
-        id: 'p-formula',
-        name: 'Valor Orçado ($)',
-        type: 'formula',
-        formulaConfig: { expression: 'prop("Custo ($)") * 1.2' },
-      },
-      { id: 'p-date', name: 'Data Limite', type: 'date' },
-      {
-        id: 'p-relation-client',
-        name: 'Cliente Vinculado',
-        type: 'relation',
-        relationConfig: { targetDatabaseId: 'db-clients' },
-      },
       { id: 'p-created', name: 'Data Criação', type: 'created_time' },
     ],
   };
 
-  const dbClients: Database = {
-    id: 'db-clients',
-    pageId: 'page-clients',
-    title: 'Clientes & Parceiros',
-    description: 'Cadastro de clientes com rollups de custo e quantidade de projetos.',
-    defaultView: 'table',
-    createdAt: now,
-    updatedAt: now,
-    properties: [
-      { id: 'pc-name', name: 'Empresa', type: 'text' },
-      {
-        id: 'pc-segment',
-        name: 'Segmento',
-        type: 'select',
-        options: [
-          { id: 'seg-tech', name: 'Tecnologia', color: 'bg-purple-100 text-purple-700 border-purple-300' },
-          { id: 'seg-fin', name: 'Finanças', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
-        ],
-      },
-      {
-        id: 'pc-projects',
-        name: 'Projetos Relacionados',
-        type: 'relation',
-        relationConfig: { targetDatabaseId: 'db-projects' },
-      },
-      {
-        id: 'pc-total-cost',
-        name: 'Total Investido ($)',
-        type: 'rollup',
-        rollupConfig: {
-          relationPropertyId: 'pc-projects',
-          targetPropertyId: 'p-cost',
-          function: 'sum',
-        },
-      },
-      {
-        id: 'pc-project-count',
-        name: 'Qtd Projetos',
-        type: 'rollup',
-        rollupConfig: {
-          relationPropertyId: 'pc-projects',
-          targetPropertyId: 'p-title',
-          function: 'count',
-        },
-      },
-      { id: 'pc-created', name: 'Data Cadastro', type: 'created_time' },
-    ],
-  };
+  // 4. Sample Real Study Records from Notion CSV Export
+  const sampleStudyRows = [
+    { materia: 'Português', aula: '00', conteudo: 'Ortografia e Acentuação Gráfica', feitas: 7, acertos: 5, erros: 2, emBranco: -7, tempo: 2, created: '2026-03-01T17:36:00.000Z' },
+    { materia: 'Direito Penal', aula: '00', conteudo: 'Princípios do Direito Penal', feitas: 10, acertos: 5, erros: 5, emBranco: -10, tempo: 2, created: '2026-03-01T17:45:00.000Z' },
+    { materia: 'Informática', aula: '00', conteudo: 'Redes de computadores 1', feitas: 10, acertos: 7, erros: 3, emBranco: -10, tempo: 2, created: '2026-03-01T17:45:00.000Z' },
+    { materia: 'Direito Constitucional', aula: '00', conteudo: 'Teoria da Constituição', feitas: 10, acertos: 7, erros: 3, emBranco: -10, tempo: 2, created: '2026-03-04T18:08:00.000Z' },
+    { materia: 'Raciocínio Lógico', aula: '00', conteudo: 'Proposições simples', feitas: 10, acertos: 8, erros: 2, emBranco: -10, tempo: 2, created: '2026-03-05T09:18:00.000Z' },
+    { materia: 'Direito Processual Penal', aula: '00', conteudo: 'Juiz de garantia, Princípios do direito processual penal', feitas: 13, acertos: 10, erros: 3, emBranco: -13, tempo: 2, created: '2026-03-05T14:23:00.000Z' },
+    { materia: 'Direito Administrativo', aula: '00', conteudo: 'Organização administrativa', feitas: 10, acertos: 10, erros: 0, emBranco: -10, tempo: 2, created: '2026-03-05T14:33:00.000Z' },
+    { materia: 'Legislação Penal', aula: '00', conteudo: 'Estatuto do desarmamento', feitas: 10, acertos: 8, erros: 2, emBranco: -10, tempo: 2, created: '2026-03-06T06:57:00.000Z' },
+    { materia: 'Português', aula: '00', conteudo: 'Ortografia e Acentuação Gráfica', feitas: 10, acertos: 6, erros: 4, emBranco: -10, tempo: 2, created: '2026-03-06T17:32:00.000Z' },
+    { materia: 'Direito Penal', aula: '00', conteudo: 'Princípios do Direito Penal', feitas: 13, acertos: 9, erros: 4, emBranco: -13, tempo: 2, created: '2026-03-06T19:55:00.000Z' },
+    { materia: 'Direito Civil', aula: '00', conteudo: 'Noções Gerais de Direito Civil', feitas: 10, acertos: 7, erros: 3, emBranco: -10, tempo: 2, created: '2026-03-09T08:58:00.000Z' },
+    { materia: 'Português', aula: '00', conteudo: 'Emprego do Hífen', feitas: 9, acertos: 6, erros: 3, emBranco: -9, tempo: 1, created: '2026-03-09T11:10:00.000Z' },
+    { materia: 'Direito Constitucional', aula: '00', conteudo: 'Constituições', feitas: 10, acertos: 7, erros: 3, emBranco: -10, tempo: 2, created: '2026-03-09T17:16:00.000Z' },
+    { materia: 'Direito Administrativo', aula: '00', conteudo: 'Administração Pública, Organização administrativa', feitas: 18, acertos: 14, erros: 4, emBranco: -18, tempo: 0.5, created: '2026-03-10T10:30:00.000Z' },
+    { materia: 'Legislação Penal', aula: '00', conteudo: 'Estatuto do desarmamento', feitas: 9, acertos: 7, erros: 2, emBranco: -9, tempo: 1, created: '2026-03-10T11:40:00.000Z' },
+    { materia: 'Raciocínio Lógico', aula: '00', conteudo: 'Proposições compostas', feitas: 10, acertos: 7, erros: 3, emBranco: -10, tempo: 2, created: '2026-03-10T15:37:00.000Z' },
+    { materia: 'Direitos Humanos', aula: '00', conteudo: 'Teoria Geral dos Direitos Humanos', feitas: 0, acertos: 0, erros: 0, emBranco: 0, tempo: 2, created: '2026-03-11T10:46:00.000Z' },
+    { materia: 'Português', aula: '00', conteudo: 'Ortografia e Acentuação Gráfica', feitas: 10, acertos: 6, erros: 4, emBranco: -10, tempo: 1, obs: 'Expressões problemáticas', created: '2026-03-13T14:51:00.000Z' },
+    { materia: 'Português', aula: '01', conteudo: 'Substantivos; Adjetivos; Artigos; Numerais; Advérbios e Interjeições', feitas: 5, acertos: 5, erros: 0, emBranco: -5, tempo: 1, obs: 'Substantivos', created: '2026-03-13T14:55:00.000Z' },
+    { materia: 'Direito Penal', aula: '01', conteudo: 'Aplicação da Lei Penal', feitas: 10, acertos: 7, erros: 3, emBranco: -10, tempo: 2, obs: 'Lei Penal no tempo e espaço', created: '2026-03-16T11:34:00.000Z' },
+    { materia: 'Direito Constitucional', aula: '01', conteudo: 'Direitos Fundamentais', feitas: 15, acertos: 10, erros: 5, emBranco: -15, tempo: 1, created: '2026-03-17T09:16:00.000Z' },
+    { materia: 'Revisão', aula: '00', conteudo: 'Revisão Geral PDFs 00-02', feitas: 55, acertos: 40, erros: 15, emBranco: 0, tempo: 0.5, total: 55, created: '2026-03-27T16:55:00.000Z' },
+    { materia: 'Informática', aula: '07', conteudo: 'Segurança da Informação I', feitas: 10, acertos: 9, erros: 1, emBranco: -10, tempo: 2, created: '2026-03-25T11:12:00.000Z' },
+    { materia: 'Legislação Penal', aula: '03', conteudo: 'Lei de Abuso de Autoridade', feitas: 13, acertos: 12, erros: 1, emBranco: -13, tempo: 1.5, created: '2026-04-14T10:31:00.000Z' },
+  ];
 
-  const dbBooks: Database = {
-    id: 'db-books',
-    pageId: 'page-books',
-    title: 'Biblioteca de Leituras',
-    description: 'Acompanhamento de livros e referências.',
-    defaultView: 'board',
-    createdAt: now,
-    updatedAt: now,
-    properties: [
-      { id: 'pb-title', name: 'Título do Livro', type: 'text' },
-      { id: 'pb-author', name: 'Autor', type: 'text' },
-      {
-        id: 'pb-status',
-        name: 'Status',
-        type: 'status',
-        options: [
-          { id: 'bs-1', name: 'Não iniciado', color: 'bg-gray-100 text-gray-700 border-gray-300' },
-          { id: 'bs-2', name: 'Em andamento', color: 'bg-blue-100 text-blue-700 border-blue-300' },
-          { id: 'bs-3', name: 'Concluído', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
-        ],
-      },
-      { id: 'pb-rating', name: 'Nota (1-5)', type: 'number', numberFormat: 'number' },
-      { id: 'pb-created', name: 'Adicionado Em', type: 'created_time' },
-    ],
-  };
+  const studyRecords: RecordItem[] = sampleStudyRows.map((row, idx) => ({
+    id: `rec-study-${idx + 1}`,
+    databaseId: 'db-bloco-estudos',
+    order: idx,
+    createdAt: row.created,
+    updatedAt: row.created,
+    values: {
+      'p-materia': row.materia,
+      'p-aula': row.aula,
+      'p-conteudo': row.conteudo,
+      'p-feitas': row.feitas,
+      'p-acertos': row.acertos,
+      'p-erros': row.erros,
+      'p-em-branco': row.emBranco,
+      'p-total-questoes': row.total || row.feitas,
+      'p-tempo': row.tempo,
+      'p-created': row.created,
+      'p-obs': row.obs || '',
+    },
+  }));
 
-  // 4. Sample Records
-  const rec1: RecordItem = {
-    id: 'rec-1',
+  const recProj1: RecordItem = {
+    id: 'rec-proj-1',
     databaseId: 'db-projects',
     order: 0,
     createdAt: now,
     updatedAt: now,
     values: {
-      'p-title': 'Refatoração da Arquitetura PWA',
-      'p-status': 'Em andamento',
-      'p-priority': 'Alta',
-      'p-hours': 40,
-      'p-cost': 2500,
-      'p-date': '2026-10-01',
-      'p-relation-client': ['rec-client-1'],
-      'p-created': now,
-    },
-  };
-
-  const rec2: RecordItem = {
-    id: 'rec-2',
-    databaseId: 'db-projects',
-    order: 1,
-    createdAt: now,
-    updatedAt: now,
-    values: {
-      'p-title': 'Painel Kanban e Motor de Rollups',
-      'p-status': 'Em andamento',
-      'p-priority': 'Média',
-      'p-hours': 24,
-      'p-cost': 1800,
-      'p-date': '2026-10-15',
-      'p-relation-client': ['rec-client-1'],
-      'p-created': now,
-    },
-  };
-
-  const rec3: RecordItem = {
-    id: 'rec-3',
-    databaseId: 'db-projects',
-    order: 2,
-    createdAt: now,
-    updatedAt: now,
-    values: {
-      'p-title': 'Deploy Estático Netlify e CI/CD',
+      'p-title': 'Configuração Bloco de Estudos PWA',
       'p-status': 'Concluído',
-      'p-priority': 'Baixa',
       'p-hours': 10,
-      'p-cost': 800,
-      'p-date': '2026-09-20',
-      'p-relation-client': ['rec-client-2'],
       'p-created': now,
-    },
-  };
-
-  const recClient1: RecordItem = {
-    id: 'rec-client-1',
-    databaseId: 'db-clients',
-    order: 0,
-    createdAt: now,
-    updatedAt: now,
-    values: {
-      'pc-name': 'Acme Global Innovations',
-      'pc-segment': 'Tecnologia',
-      'pc-projects': ['rec-1', 'rec-2'],
-      'pc-created': now,
-    },
-  };
-
-  const recClient2: RecordItem = {
-    id: 'rec-client-2',
-    databaseId: 'db-clients',
-    order: 1,
-    createdAt: now,
-    updatedAt: now,
-    values: {
-      'pc-name': 'Fintech Horizon S.A.',
-      'pc-segment': 'Finanças',
-      'pc-projects': ['rec-3'],
-      'pc-created': now,
-    },
-  };
-
-  const recBook1: RecordItem = {
-    id: 'rec-book-1',
-    databaseId: 'db-books',
-    order: 0,
-    createdAt: now,
-    updatedAt: now,
-    values: {
-      'pb-title': 'Designing Data-Intensive Applications',
-      'pb-author': 'Martin Kleppmann',
-      'pb-status': 'Em andamento',
-      'pb-rating': 5,
-      'pb-created': now,
-    },
-  };
-
-  const recBook2: RecordItem = {
-    id: 'rec-book-2',
-    databaseId: 'db-books',
-    order: 1,
-    createdAt: now,
-    updatedAt: now,
-    values: {
-      'pb-title': 'Clean Code',
-      'pb-author': 'Robert C. Martin',
-      'pb-status': 'Concluído',
-      'pb-rating': 5,
-      'pb-created': now,
     },
   };
 
   // Bulk add into Dexie DB
-  await db.teamspaces.bulkAdd([teamspaceEng, teamspacePersonal]);
-  await db.pages.bulkAdd([pageProjects, pageClients, pageDoc, pageBooks]);
-  await db.databases.bulkAdd([dbProjects, dbClients, dbBooks]);
-  await db.records.bulkAdd([rec1, rec2, rec3, recClient1, recClient2, recBook1, recBook2]);
+  await db.teamspaces.bulkAdd([teamspaceStudies, teamspaceEng]);
+  await db.pages.bulkAdd([pageBlocoEstudos, pageProjects]);
+  await db.databases.bulkAdd([dbBlocoEstudos, dbProjects]);
+  await db.records.bulkAdd([...studyRecords, recProj1]);
 }

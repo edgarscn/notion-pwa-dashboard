@@ -1,9 +1,9 @@
 import { PropertySchema, RecordItem } from '../types';
 
 /**
- * Simple Tokenizer & Evaluator for Notion-style formulas
+ * Formula Evaluator for Notion-style formulas
  * Supports:
- * - prop("Property Name")
+ * - prop("Property Name") or prop("propId")
  * - +, -, *, /, %, ==, !=, >, <, >=, <=
  * - if(cond, thenVal, elseVal)
  * - upper(str), lower(str), round(num, decimals?), length(str), concat(str1, str2)
@@ -35,10 +35,10 @@ export function evaluateFormula(
       return null;
     };
 
-    // Replace prop("...") or prop('...') calls with value literal JSON strings
+    // Replace prop("...") or prop('...') calls with value literals
     let expr = expression.replace(/prop\s*\(\s*(['"])(.*?)\1\s*\)/gi, (_, __, propName) => {
       const val = getPropVal(propName);
-      if (val === null || val === undefined) return '0';
+      if (val === null || val === undefined || val === '') return '0';
       if (typeof val === 'number') return val.toString();
       if (typeof val === 'boolean') return val.toString();
       return JSON.stringify(String(val));
@@ -47,14 +47,17 @@ export function evaluateFormula(
     // Custom helper functions mapping
     const upper = (str: any) => String(str || '').toUpperCase();
     const lower = (str: any) => String(str || '').toLowerCase();
-    const round = (num: any, decimals = 0) => {
+    const round = (num: any, decimals = 1) => {
       const n = Number(num) || 0;
       const factor = Math.pow(10, decimals);
       return Math.round(n * factor) / factor;
     };
     const length = (str: any) => String(str || '').length;
-    const concat = (...args: any[]) => args.map(a => String(a || '')).join('');
-    const ifFn = (cond: any, trueVal: any, falseVal: any) => (Boolean(cond) && cond !== 'false' ? trueVal : falseVal);
+    const concat = (...args: any[]) => args.map((a) => String(a || '')).join('');
+    const ifFn = (cond: any, trueVal: any, falseVal: any) => {
+      const isTrue = Boolean(cond) && cond !== 'false' && cond !== 0 && cond !== '0' && cond !== 'N/A';
+      return isTrue ? trueVal : falseVal;
+    };
 
     // Build context object
     const context = {
@@ -67,7 +70,6 @@ export function evaluateFormula(
     };
 
     // Safely evaluate simple arithmetic and function expressions
-    // Replace 'if(' with 'context.if('
     expr = expr.replace(/\bif\s*\(/g, 'context.if(');
     expr = expr.replace(/\bupper\s*\(/g, 'context.upper(');
     expr = expr.replace(/\blower\s*\(/g, 'context.lower(');

@@ -2,10 +2,11 @@ import { db } from './index';
 import { Teamspace, Page, Database, RecordItem } from '../types';
 
 export async function seedInitialData() {
-  const existingTeamspaces = await db.teamspaces.count();
-  if (existingTeamspaces > 0) return;
-
   const now = new Date().toISOString();
+
+  // Check if Bloco de Estudos database already exists in IndexedDB
+  const existingBlocoDb = await db.databases.get('db-bloco-estudos');
+  if (existingBlocoDb) return; // Already seeded!
 
   // 1. Teamspaces
   const teamspaceStudies: Teamspace = {
@@ -17,14 +18,10 @@ export async function seedInitialData() {
     updatedAt: now,
   };
 
-  const teamspaceEng: Teamspace = {
-    id: 'ts-eng',
-    name: '🚀 Engenharia & Produto',
-    icon: '🚀',
-    description: 'Espaço para gestão de projetos de software, infraestrutura e produto.',
-    createdAt: now,
-    updatedAt: now,
-  };
+  const existingTsStudies = await db.teamspaces.get('ts-estudos');
+  if (!existingTsStudies) {
+    await db.teamspaces.put(teamspaceStudies);
+  }
 
   // 2. Pages
   const pageBlocoEstudos: Page = {
@@ -38,18 +35,7 @@ export async function seedInitialData() {
     createdAt: now,
     updatedAt: now,
   };
-
-  const pageProjects: Page = {
-    id: 'page-projects',
-    teamspaceId: 'ts-eng',
-    parentId: null,
-    title: '📋 Quadro de Projetos & Tasks',
-    icon: '📋',
-    isDatabase: true,
-    order: 0,
-    createdAt: now,
-    updatedAt: now,
-  };
+  await db.pages.put(pageBlocoEstudos);
 
   // 3. Database Schema for "Bloco de Estudos"
   const dbBlocoEstudos: Database = {
@@ -123,31 +109,7 @@ export async function seedInitialData() {
       { id: 'p-obs', name: 'Observações', type: 'text' },
     ],
   };
-
-  const dbProjects: Database = {
-    id: 'db-projects',
-    pageId: 'page-projects',
-    title: 'Quadro de Projetos & Tasks',
-    description: 'Gestão de sprints, tarefas e estimativas com fórmulas e relações.',
-    defaultView: 'table',
-    createdAt: now,
-    updatedAt: now,
-    properties: [
-      { id: 'p-title', name: 'Nome da Tarefa', type: 'text' },
-      {
-        id: 'p-status',
-        name: 'Status',
-        type: 'status',
-        options: [
-          { id: 'st-1', name: 'Não iniciado', color: 'bg-gray-100 text-gray-700 border-gray-300' },
-          { id: 'st-2', name: 'Em andamento', color: 'bg-blue-100 text-blue-700 border-blue-300' },
-          { id: 'st-3', name: 'Concluído', color: 'bg-emerald-100 text-emerald-700 border-emerald-300' },
-        ],
-      },
-      { id: 'p-hours', name: 'Horas Estimadas', type: 'number', numberFormat: 'number' },
-      { id: 'p-created', name: 'Data Criação', type: 'created_time' },
-    ],
-  };
+  await db.databases.put(dbBlocoEstudos);
 
   // 4. Sample Real Study Records from Notion CSV Export
   const sampleStudyRows = [
@@ -198,23 +160,13 @@ export async function seedInitialData() {
     },
   }));
 
-  const recProj1: RecordItem = {
-    id: 'rec-proj-1',
-    databaseId: 'db-projects',
-    order: 0,
-    createdAt: now,
-    updatedAt: now,
-    values: {
-      'p-title': 'Configuração Bloco de Estudos PWA',
-      'p-status': 'Concluído',
-      'p-hours': 10,
-      'p-created': now,
-    },
-  };
+  await db.records.bulkPut(studyRecords);
+}
 
-  // Bulk add into Dexie DB
-  await db.teamspaces.bulkAdd([teamspaceStudies, teamspaceEng]);
-  await db.pages.bulkAdd([pageBlocoEstudos, pageProjects]);
-  await db.databases.bulkAdd([dbBlocoEstudos, dbProjects]);
-  await db.records.bulkAdd([...studyRecords, recProj1]);
+export async function resetAndReseedDatabase() {
+  await db.records.clear();
+  await db.databases.clear();
+  await db.pages.clear();
+  await db.teamspaces.clear();
+  await seedInitialData();
 }

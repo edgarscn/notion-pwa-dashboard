@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Page, Teamspace } from '../../types';
-import { PanelLeftOpen, Wifi, WifiOff, ChevronRight, Code2 } from 'lucide-react';
+import { PanelLeftOpen, Wifi, WifiOff, ChevronRight, Code2, RotateCcw } from 'lucide-react';
 
 interface HeaderProps {
   sidebarOpen: boolean;
@@ -8,6 +8,7 @@ interface HeaderProps {
   activeTeamspace: Teamspace | null;
   activePage: Page | null;
   allPages: Page[];
+  onResetData?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,6 +17,7 @@ export const Header: React.FC<HeaderProps> = ({
   activeTeamspace,
   activePage,
   allPages,
+  onResetData,
 }) => {
   const [isOnline, setIsOnline] = useState(true);
 
@@ -74,8 +76,19 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
       </div>
 
-      {/* Right Header Status & GitHub Link */}
-      <div className="flex items-center gap-3 shrink-0">
+      {/* Right Header Status & Actions */}
+      <div className="flex items-center gap-2.5 shrink-0">
+        {onResetData && (
+          <button
+            onClick={onResetData}
+            title="Recarregar Dados Iniciais / Bloco de Estudos"
+            className="flex items-center gap-1 px-2.5 py-1 text-xs font-medium text-gray-600 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-blue-600" />
+            <span>Restaurar Bloco</span>
+          </button>
+        )}
+
         {/* Offline PWA Badge */}
         <div
           title={isOnline ? 'Conectado à Internet (PWA Ready)' : 'Modo Offline Ativo (Local-first Dexie.js)'}

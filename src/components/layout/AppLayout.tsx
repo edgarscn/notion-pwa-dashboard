@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useLiveQuery } from 'dexie-react-hooks';
 import { db } from '../../db';
-import { seedInitialData } from '../../db/seed';
+import { seedInitialData, resetAndReseedDatabase } from '../../db/seed';
 import { Sidebar } from './Sidebar';
 import { Header } from './Header';
 import { PageHeader } from '../pages/PageHeader';
@@ -32,21 +32,23 @@ export const AppLayout: React.FC = () => {
   const databases = useLiveQuery(() => db.databases.toArray(), []);
   const records = useLiveQuery(() => db.records.toArray(), []);
 
-  // Set default active teamspace & page when data loads
+  // Prefer 'ts-estudos' teamspace by default
   useEffect(() => {
     if (teamspaces && teamspaces.length > 0 && !activeTeamspaceId) {
-      setActiveTeamspaceId(teamspaces[0].id);
+      const tsStudies = teamspaces.find((t) => t.id === 'ts-estudos');
+      setActiveTeamspaceId(tsStudies ? tsStudies.id : teamspaces[0].id);
     }
   }, [teamspaces, activeTeamspaceId]);
 
+  // Prefer 'page-bloco-estudos' page by default
   useEffect(() => {
     if (pages && activeTeamspaceId) {
       const activeTsPages = pages.filter((p) => p.teamspaceId === activeTeamspaceId);
       if (activeTsPages.length > 0) {
-        // If current active page is not in active teamspace, reset to first root page
         const isCurrentInTs = activeTsPages.some((p) => p.id === activePageId);
         if (!isCurrentInTs) {
-          setActivePageId(activeTsPages[0].id);
+          const blocoPage = activeTsPages.find((p) => p.id === 'page-bloco-estudos');
+          setActivePageId(blocoPage ? blocoPage.id : activeTsPages[0].id);
         }
       } else {
         setActivePageId(null);
@@ -74,6 +76,14 @@ export const AppLayout: React.FC = () => {
     ? records.filter((r) => r.databaseId === activeDatabase.id)
     : [];
 
+  const handleResetData = async () => {
+    if (window.confirm('Restaurar a base de dados inicial Bloco de Estudos?')) {
+      await resetAndReseedDatabase();
+      setActiveTeamspaceId('ts-estudos');
+      setActivePageId('page-bloco-estudos');
+    }
+  };
+
   return (
     <div className="flex h-screen w-screen overflow-hidden bg-white text-notion-text">
       {/* Sidebar */}
@@ -97,6 +107,7 @@ export const AppLayout: React.FC = () => {
           activeTeamspace={activeTeamspace}
           activePage={activePage}
           allPages={pages}
+          onResetData={handleResetData}
         />
 
         {/* Main Workspace Body */}

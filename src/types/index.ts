@@ -94,3 +94,40 @@ export interface RecordItem {
   updatedAt: string;
   order: number;
 }
+
+export type FilterOperator =
+  | 'equals'
+  | 'not_equals'
+  | 'contains'
+  | 'not_contains'
+  | 'starts_with'
+  | 'ends_with'
+  | 'greater_than'
+  | 'less_than'
+  | 'greater_than_or_equal'
+  | 'less_than_or_equal'
+  | 'is_empty'
+  | 'is_not_empty';
+
+export interface FilterRule {
+  id: string;
+  propertyId: string;
+  operator: FilterOperator;
+  value: any;
+}
+
+export type FilterConjunction = 'and' | 'or';
+
+export interface FilterGroup {
+  conjunction: FilterConjunction;
+  rules: FilterRule[];
+}
+
+export type SortDirection = 'asc' | 'desc';
+
+export interface SortRule {
+  id: string;
+  propertyId: string;
+  direction: SortDirection;
+}
+
